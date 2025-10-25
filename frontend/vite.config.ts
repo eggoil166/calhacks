@@ -9,5 +9,10 @@ export default defineConfig({
   },
   resolve: {
     dedupe: ['three']
+  },
+  server: {
+    proxy: {
+      '/api/': 'http://127.0.0.1:5000'
+    }
   }
 });
