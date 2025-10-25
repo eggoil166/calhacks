@@ -4,16 +4,18 @@ import { Sparkles, Mic, Square } from 'lucide-react';
 // Minimal Web Speech typings (avoid 'any' while not depending on DOM lib types)
 type RecognitionEvent = {
   resultIndex: number;
-  results: { length: number; [index: number]: { 0: { transcript: string } } };
+  results: { length: number; [index: number]: { 0: { transcript: string }; isFinal?: boolean } };
 };
 type WebSpeechRecognition = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
+  maxAlternatives?: number;
   start: () => void;
   stop: () => void;
   onresult?: (ev: RecognitionEvent) => void;
   onend?: () => void;
+  onstart?: () => void;
 };
 type SRConstructor = new () => WebSpeechRecognition;
 
@@ -26,7 +28,10 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
   const [prompt, setPrompt] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<WebSpeechRecognition | null>(null);
-  const recordingActiveRef = useRef(false);
+  const isRecordingRef = useRef<boolean>(false);
+  const basePromptRef = useRef<string>('');
+  const finalTextRef = useRef<string>('');
+  const debounceTimerRef = useRef<number | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,22 +47,45 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
     const rec: WebSpeechRecognition = new SRCtor();
     rec.lang = 'en-US';
     rec.interimResults = true;
-    rec.continuous = true;
+    rec.continuous = true; // keep listening for longer phrases/sentences
+    rec.maxAlternatives = 1;
     rec.onresult = (ev: RecognitionEvent) => {
-      let finalText = '';
+      let interim = '';
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const res = ev.results[i];
-        finalText += res[0].transcript;
+        const text = (res[0]?.transcript || '').trim();
+        if (res.isFinal) {
+          finalTextRef.current += (text + ' ');
+        } else {
+          interim = text;
+        }
       }
-      setPrompt(finalText.trim());
+      const combined = [basePromptRef.current, finalTextRef.current, interim]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = window.setTimeout(() => {
+        setPrompt(combined);
+      }, 120);
     };
     rec.onend = () => {
-      // Keep listening until user explicitly stops
-      if (recordingActiveRef.current) {
-        try { recognitionRef.current?.start(); } catch (e) { console.warn('SR restart failed', e); }
+      // Keep listening if user hasn't pressed Stop
+      if (isRecordingRef.current) {
+        try { recognitionRef.current?.start(); } catch {
+          // ignore restart errors
+        }
       } else {
         setIsRecording(false);
       }
+    };
+    // reflect isRecording on start
+    rec.onstart = () => {
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      finalTextRef.current = '';
+      basePromptRef.current = (document.getElementById('prompt-textarea') as HTMLTextAreaElement | null)?.value || '';
     };
     recognitionRef.current = rec;
     return () => {
@@ -72,16 +100,16 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
       return;
     }
     if (isRecording) {
-      recordingActiveRef.current = false;
+      isRecordingRef.current = false;
       try { recognitionRef.current?.stop(); } catch (e) { console.warn('SR stop failed', e); }
       setIsRecording(false);
     } else {
       try {
-        recordingActiveRef.current = true;
+        isRecordingRef.current = true;
         recognitionRef.current?.start();
-        setIsRecording(true);
       } catch (e) {
         console.warn('SR start failed', e);
+        return;
       }
     }
   };
