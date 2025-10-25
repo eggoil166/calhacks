@@ -58,7 +58,6 @@ A user wants to edit an existing model. You are given:
 
 Return:
 1. Updated JSON object following the GeometryAssembly schema.
-2. Updated OpenSCAD code in the 'current_scad' field.
 
 Rules:
 - Preserve all previous parts unless explicitly modified by the new request.
