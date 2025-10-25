@@ -82,6 +82,7 @@ def claude_flash():
             output_text = "\n".join(texts) if texts else str(msg)
         except Exception:
             output_text = str(msg)
+        print(output_text)
         return jsonify({"output": output_text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

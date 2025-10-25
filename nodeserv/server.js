@@ -72,7 +72,7 @@ async function compileSCAD(scadCode, format = "stl") {
 
 app.post("/generate", async (req, res) => {
   try {
-    const { prompt, format = "glb" } = req.body;
+    const { prompt, format = "stl" } = req.body;
 
     const geomResp = await axios.post(`${api_dir}/api/generate_scad`, { 'prompt': prompt });
     const ret = geomResp.data;
