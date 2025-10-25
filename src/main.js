@@ -127,7 +127,11 @@ function setPlacedObjectPoseFromFloorRay() {
 controller.addEventListener('selectstart', () => {
   isDragging = true;
   ensurePlacedObject();
-  setPlacedObjectPoseFromReticle();
+  if (useAR) {
+    setPlacedObjectPoseFromReticle();
+  } else if (useVR) {
+    setPlacedObjectPoseFromFloorRay();
+  }
 });
 
 controller.addEventListener('selectend', () => {
@@ -185,11 +189,13 @@ async function onSessionStart() {
     const model = await loadModel(urlToLoad);
     if (!placedObject) {
       placedObject = new THREE.Group();
-      placedObject.add(model);
       scene.add(placedObject);
-    } else {
-      placedObject.add(model);
     }
+    // Remove cube fallback children if any
+    placedObject.children
+      .filter(ch => ch.isMesh && ch.geometry && ch.geometry.type === 'BoxGeometry')
+      .forEach(ch => placedObject.remove(ch));
+    placedObject.add(model);
   } catch (e) {
     console.warn('Failed to load model URL, using box fallback.', e);
   }
