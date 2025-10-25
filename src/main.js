@@ -10,6 +10,89 @@ const appRoot = document.getElementById('app');
 const buttonsRoot = document.getElementById('buttons');
 const statusEl = document.getElementById('status');
 
+// Speech-to-text setup
+let recognition = null;
+let isListening = false;
+let speechOverlay = null;
+let micButton = null;
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onstart = () => {
+    isListening = true;
+    console.log('🎤 Speech recognition started');
+    if (speechOverlay) speechOverlay.textContent = 'Listening...';
+    if (micButton) micButton.classList.add('listening');
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+    
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript + ' ';
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    const displayText = (finalTranscript + interimTranscript).trim();
+    if (speechOverlay && displayText) {
+      speechOverlay.textContent = `"${displayText}"`;
+    }
+    
+    if (finalTranscript) {
+      console.log('📝 Final transcript:', finalTranscript.trim());
+    }
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+    isListening = false;
+    if (micButton) micButton.classList.remove('listening');
+    if (speechOverlay) {
+      speechOverlay.textContent = event.error === 'no-speech' ? 'No speech detected' : 'Speech error';
+      setTimeout(() => { if (speechOverlay) speechOverlay.textContent = ''; }, 2000);
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    console.log('🎤 Speech recognition ended');
+    if (micButton) micButton.classList.remove('listening');
+    if (speechOverlay) {
+      setTimeout(() => { if (speechOverlay) speechOverlay.textContent = ''; }, 1000);
+    }
+  };
+}
+
+function startSpeech() {
+  if (!recognition) {
+    console.warn('Speech recognition not available');
+    return;
+  }
+  if (!isListening) {
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start speech:', e);
+    }
+  }
+}
+
+function stopSpeech() {
+  if (recognition && isListening) {
+    recognition.stop();
+  }
+}
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 20);
 
@@ -172,6 +255,91 @@ resetBtn.onclick = () => {
 };
 buttonsRoot.appendChild(resetBtn);
 
+// Speech-to-text UI overlay
+if (recognition) {
+  // Create speech overlay (shows transcription)
+  speechOverlay = document.createElement('div');
+  speechOverlay.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 500;
+    max-width: 80%;
+    text-align: center;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+  `;
+  document.body.appendChild(speechOverlay);
+
+  // Create mic button
+  micButton = document.createElement('button');
+  micButton.innerHTML = '🎤';
+  micButton.style.cssText = `
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: 3px solid #4af2a1;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  `;
+  micButton.onclick = () => {
+    if (isListening) {
+      stopSpeech();
+    } else {
+      startSpeech();
+      if (speechOverlay) {
+        speechOverlay.style.display = 'block';
+      }
+    }
+  };
+  document.body.appendChild(micButton);
+
+  // Add listening animation style
+  const style = document.createElement('style');
+  style.textContent = `
+    button.listening {
+      background: #4af2a1 !important;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(74, 242, 161, 0.5); }
+      50% { transform: scale(1.1); box-shadow: 0 6px 20px rgba(74, 242, 161, 0.8); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Update overlay visibility based on listening state
+  const originalOnStart = recognition.onstart;
+  recognition.onstart = () => {
+    originalOnStart();
+    if (speechOverlay) speechOverlay.style.display = 'block';
+  };
+
+  const originalOnEnd = recognition.onend;
+  recognition.onend = () => {
+    originalOnEnd();
+    if (speechOverlay) {
+      setTimeout(() => { 
+        if (speechOverlay && !isListening) speechOverlay.style.display = 'none'; 
+      }, 1500);
+    }
+  };
+}
+
 // XR Buttons: prefer AR; fall back to VR (for web browser without AR)
 async function setupXRButtons() {
   let arSupported = false;
@@ -305,6 +473,22 @@ function render(timestamp, frame) {
   const session = renderer.xr.getSession();
   if (session && placedObject) {
     updateXRControls(session, placedObject, dt);
+  }
+
+  // Check for 'B' button press on controller to trigger speech
+  if (session && recognition) {
+    for (const source of session.inputSources) {
+      const gp = source && source.gamepad;
+      if (!gp) continue;
+      const buttons = gp.buttons || [];
+      // B button is typically at index 5 or 1
+      const bPressed = (buttons[5] && buttons[5].pressed) || (buttons[1] && buttons[1].pressed);
+      if (bPressed && !isListening) {
+        startSpeech();
+      } else if (!bPressed && isListening) {
+        stopSpeech();
+      }
+    }
   }
 
   renderer.render(scene, camera);
