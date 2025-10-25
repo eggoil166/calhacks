@@ -2,24 +2,19 @@ import type { CADParameter } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-export interface ClaudeFlashRequest {
-  request: string;
-  context: string;
-}
-
-export interface ClaudeFlashResponse {
-  output: string;
-}
-
-export async function callClaudeFlash(payload: ClaudeFlashRequest): Promise<ClaudeFlashResponse> {
-  const response = await fetch(`${API_BASE}/claude/flash`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+export async function callClaudeFlash(payload: string): Promise<string> {
+  console.log("payload", payload)
+  const response = await fetch(`http://localhost:5000/api/generate_scad`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{\"prompt\": \"" + payload + "\"}"
   });
+  console.log("random rsspeon");
+  return "hello";
   if (!response.ok) {
     throw new Error(`Claude flash failed: ${response.statusText}`);
   }
+  console.log(response);
   return response.json();
 }
 

@@ -13,8 +13,9 @@ export function APITest() {
     setError(null);
     setLoading(true);
     setOutput('');
+    console.log("submitting req", request);
     try {
-      const res = await callClaudeFlash({ request, context });
+      const res = await callClaudeFlash(request);
       setOutput(res.output);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
