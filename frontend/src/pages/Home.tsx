@@ -1,30 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Download, Eye, AlertCircle } from 'lucide-react';
-import { PromptInput } from './components/PromptInput';
-import { ParamPanel } from './components/ParamPanel';
-import { ModelViewer } from './components/ModelViewer';
-import { ARViewer } from './components/ARViewer';
-import { Fallback } from './pages/Fallback';
-import { nlpToCAD, cadToMesh } from './lib/api';
-import { useDebounce } from './hooks/useDebounce';
-import type { CADParameter } from './lib/types';
-import { APITest } from './pages/APITest';
+import { PromptInput } from '../components/PromptInput';
+import { ParamPanel } from '../components/ParamPanel';
+import { ModelViewer } from '../components/ModelViewer';
+import { ARViewer } from '../components/ARViewer';
+import { nlpToCAD, cadToMesh } from '../lib/api';
+import { useDebounce } from '../hooks/useDebounce';
+import type { CADParameter } from '../lib/types';
 
-function App() {
-  const isFallback = window.location.pathname === '/fallback';
-  const isApiTest = window.location.pathname === '/api-test';
-
-  if (isFallback) {
-    return <Fallback />;
-  }
-  if (isApiTest) {
-    return <APITest />;
-  }
-
-  return <MainApp />;
-}
-
-function MainApp() {
+export function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showAR, setShowAR] = useState(false);
@@ -189,4 +173,4 @@ function MainApp() {
   );
 }
 
-export default App;
+

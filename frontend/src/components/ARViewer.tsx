@@ -69,6 +69,13 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
       containerRef.current.appendChild(renderer.domElement);
+      // ensure canvas fills the overlay
+      Object.assign(renderer.domElement.style, {
+        position: 'absolute',
+        inset: '0px',
+        width: '100%',
+        height: '100%'
+      } as CSSStyleDeclaration);
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
       const dir = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -102,7 +109,7 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
         const session = await navigator.xr.requestSession('immersive-ar', {
           requiredFeatures: ['hit-test'],
           optionalFeatures: ['dom-overlay'],
-          domOverlay: { root: document.body }
+          domOverlay: { root: containerRef.current as unknown as Element }
         });
         renderer.xr.setSession(session);
 
@@ -168,6 +175,16 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
         renderer.setSize(window.innerWidth, window.innerHeight);
       };
       window.addEventListener('resize', onResize);
+      // lock body scroll while overlay is shown
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      const prevBodyOverflow = document.body.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      return () => {
+        window.removeEventListener('resize', onResize);
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overflow = prevBodyOverflow;
+      };
     };
 
     init();
@@ -182,7 +199,7 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
   }, [glbUrl, onClose]);
 
   return (
-    <div ref={containerRef} className="fixed inset-0 bg-black z-50">
+    <div ref={containerRef} className="fixed inset-0 w-screen h-screen bg-black z-50">
       <div className="absolute top-4 right-4">
         <button
           onClick={onClose}
