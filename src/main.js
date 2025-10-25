@@ -3,6 +3,7 @@ import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { updateXRControls } from './xrControls.js';
 
 const appRoot = document.getElementById('app');
 const buttonsRoot = document.getElementById('buttons');
@@ -225,7 +226,10 @@ function onSessionEnd() {
 renderer.xr.addEventListener('sessionstart', onSessionStart);
 renderer.xr.addEventListener('sessionend', onSessionEnd);
 
+let lastTs = 0;
 function render(timestamp, frame) {
+  const dt = lastTs ? (timestamp - lastTs) / 1000 : 0.016;
+  lastTs = timestamp;
   if (useAR && frame && hitTestSource && localReferenceSpace) {
     const hitTestResults = frame.getHitTestResults(hitTestSource);
     if (hitTestResults.length > 0) {
@@ -245,6 +249,12 @@ function render(timestamp, frame) {
 
   if (useVR && isDragging) {
     setPlacedObjectPoseFromFloorRay();
+  }
+
+  // XR controller-based rotate/scale (both AR and VR)
+  const session = renderer.xr.getSession();
+  if (session && placedObject) {
+    updateXRControls(session, placedObject, dt);
   }
 
   renderer.render(scene, camera);
