@@ -1,6 +1,27 @@
-import type { CADParameter } from './supabase';
+import type { CADParameter } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+
+export interface ClaudeFlashRequest {
+  request: string;
+  context: string;
+}
+
+export interface ClaudeFlashResponse {
+  output: string;
+}
+
+export async function callClaudeFlash(payload: ClaudeFlashRequest): Promise<ClaudeFlashResponse> {
+  const response = await fetch(`${API_BASE}/claude/flash`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(`Claude flash failed: ${response.statusText}`);
+  }
+  return response.json();
+}
 
 export interface NLPToCADRequest {
   prompt: string;
@@ -33,7 +54,8 @@ export interface CADToMeshResponse {
 }
 
 export async function nlpToCAD(prompt: string): Promise<NLPToCADResponse> {
-  const mockMode = import.meta.env.VITE_MOCK_MODE === 'true';
+  const mockFlag = import.meta.env.VITE_MOCK_MODE as string | undefined;
+  const mockMode = mockFlag === undefined ? true : mockFlag === 'true';
 
   if (mockMode) {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -68,7 +90,8 @@ export async function nlpToCAD(prompt: string): Promise<NLPToCADResponse> {
 }
 
 export async function cadToMesh(modelId: string, parameters: Record<string, number>): Promise<CADToMeshResponse> {
-  const mockMode = import.meta.env.VITE_MOCK_MODE === 'true';
+  const mockFlag = import.meta.env.VITE_MOCK_MODE as string | undefined;
+  const mockMode = mockFlag === undefined ? true : mockFlag === 'true';
 
   if (mockMode) {
     await new Promise(resolve => setTimeout(resolve, 800));
