@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { callClaudeFlash } from '../lib/apicalls';
+import { callClaudeFlash, saveGLBFile } from '../lib/apicalls';
 
 export function APITest() {
   const [request, setRequest] = useState('Describe an L-bracket with adjustable hole pitch.');
@@ -17,7 +17,7 @@ export function APITest() {
     console.log("submitting req", { request, context });
     try {
       const res = await callClaudeFlash(request, context);
-      setOutput(res);
+      saveGLBFile(res.glbBuffer, res.fileName);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Request failed');
     } finally {
