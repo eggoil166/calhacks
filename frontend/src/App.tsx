@@ -7,13 +7,18 @@ import { ARViewer } from './components/ARViewer';
 import { Fallback } from './pages/Fallback';
 import { nlpToCAD, cadToMesh } from './lib/api';
 import { useDebounce } from './hooks/useDebounce';
-import type { CADParameter } from './lib/supabase';
+import type { CADParameter } from './lib/types';
+import { APITest } from './pages/APITest';
 
 function App() {
   const isFallback = window.location.pathname === '/fallback';
+  const isApiTest = window.location.pathname === '/api-test';
 
   if (isFallback) {
     return <Fallback />;
+  }
+  if (isApiTest) {
+    return <APITest />;
   }
 
   return <MainApp />;

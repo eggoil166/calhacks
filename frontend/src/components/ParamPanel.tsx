@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sliders } from 'lucide-react';
-import type { CADParameter } from '../lib/supabase';
+import type { CADParameter } from '../lib/types';
 
 interface ParamPanelProps {
   parameters: CADParameter[];
