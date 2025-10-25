@@ -3,6 +3,7 @@ import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { updateXRControls } from './xrControls.js';
 
 const appRoot = document.getElementById('app');
@@ -57,6 +58,8 @@ let localReferenceSpace = null;
 let viewerSpace = null;
 let useAR = false;
 let useVR = false;
+let isDesktopMode = false;
+let controls = null;
 
 const params = new URLSearchParams(location.search);
 const gltfUrl = params.get('model');
@@ -125,6 +128,25 @@ function setPlacedObjectPoseFromFloorRay() {
   }
 }
 
+function updateMouseFromEvent(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const pointer = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  return pointer;
+}
+
+function setPlacedObjectPoseFromMouse(pointer) {
+  if (!placedObject) return;
+  raycaster.setFromCamera(pointer, camera);
+  const hitPoint = new THREE.Vector3();
+  const hit = raycaster.ray.intersectPlane(floorPlane, hitPoint);
+  if (hit) {
+    placedObject.position.copy(hitPoint);
+  }
+}
+
 controller.addEventListener('selectstart', () => {
   isDragging = true;
   ensurePlacedObject();
@@ -174,7 +196,35 @@ async function setupXRButtons() {
     gridHelper.visible = true;
     statusEl.textContent = 'VR fallback: Trigger to place/drag on floor grid.';
   } else {
-    statusEl.textContent = 'WebXR not supported.';
+    // Desktop fallback (no WebXR): orbit controls and mouse drag on floor
+    isDesktopMode = true;
+    gridHelper.visible = true;
+    statusEl.textContent = 'Desktop preview: left-drag places/moves model; scroll to zoom; right-drag to orbit.';
+
+    camera.position.set(0.6, 1.6, 2.2);
+    camera.lookAt(0, 1, 0);
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 1, 0);
+    controls.update();
+
+    let mouseDragging = false;
+    renderer.domElement.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // left only
+      mouseDragging = true;
+      ensurePlacedObject();
+      const p = updateMouseFromEvent(e);
+      setPlacedObjectPoseFromMouse(p);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!mouseDragging) return;
+      const p = updateMouseFromEvent(e);
+      setPlacedObjectPoseFromMouse(p);
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button !== 0) return;
+      mouseDragging = false;
+    });
   }
 }
 setupXRButtons();
