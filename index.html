@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#000000" />
+  <title>WebXR AR Test (Quest)</title>
+  <style>
+    html, body, #app { height: 100%; margin: 0; padding: 0; }
+    body { background: #000; color: #fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, sans-serif; }
+    #ui { position: fixed; inset: env(safe-area-inset-top) env(safe-area-inset-right) auto env(safe-area-inset-left); display: flex; gap: 8px; align-items: center; padding: 10px 12px; z-index: 10; }
+    #status { font-size: 14px; opacity: 0.85; }
+    #buttons { margin-left: auto; display: flex; gap: 8px; }
+    button { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+    button:hover { background: rgba(255,255,255,0.18); }
+    a { color: #8ec7ff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui">
+    <div id="status">Aim at the floor. When the ring appears, press trigger to place. Hold trigger to drag.</div>
+    <div id="buttons"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+  <!-- Vite injects HTTPS with self-signed cert; accept warning on Quest -->
+</body>
+<noscript>This app requires JavaScript and WebXR support (Oculus Browser).</noscript>
+</html>
+
+
