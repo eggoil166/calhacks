@@ -5,6 +5,8 @@ from llmgen.utils.scadding import save_openscad
 import re
 
 from flask import Flask, request, jsonify
+import os
+import anthropic
 
 app = Flask(__name__)
 
@@ -47,6 +49,42 @@ def edit_scad():
 def test():
     print("something happened!!!!")
     return jsonify({"message": "working"})
+
+@app.route("/api/claude/flash", methods=["POST"])
+def claude_flash():
+    data = request.json or {}
+    request_text = str(data.get("request", ""))
+    context_text = str(data.get("context", ""))
+    if not request_text:
+        return jsonify({"error": "Missing 'request'"}), 400
+
+    api_key = os.getenv("CLAUDE_API_KEY")
+    if not api_key:
+        return jsonify({"error": "Missing CLAUDE_API_KEY"}), 500
+
+    client = anthropic.Anthropic(api_key=api_key)
+    prompt = f"Context: {context_text}\n\nRequest: {request_text}"
+    try:
+        msg = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # content can be a list of blocks; join text blocks if present
+        output_text = ""
+        try:
+            parts = getattr(msg, 'content', []) or []
+            texts = []
+            for p in parts:
+                t = getattr(p, 'text', None)
+                if t:
+                    texts.append(t)
+            output_text = "\n".join(texts) if texts else str(msg)
+        except Exception:
+            output_text = str(msg)
+        return jsonify({"output": output_text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
