@@ -11,12 +11,14 @@ Mixed reality AR placement with Three.js + WebXR, built for Oculus/Meta Quest 1 
 
 ## Prerequisites
 - Node.js 18+
-- Quest 1 or 2 with Oculus Browser (latest)
+- Meta (formerly Oculus) Quest 1 or 2 with Oculus Browser (latest)
 - Same Wi‑Fi network between your dev machine and the Quest
+- Python 3.10+
 
-## Install
+## Install dependencies
 ```bash
 npm install
+pip install -r requirements.txt
 ```
 
 ## Run (HTTPS dev server)

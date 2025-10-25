@@ -10,7 +10,7 @@ audio = os.path.join("data", "main.mp3")
 text = os.path.join("data", "main.txt")
 
 # Read audio file
-with open(audio, "rb") as f:
+with open(audio, "rb") as f: # heads up is this async?
     audio_data = f.read()
 
 # Transcribe
