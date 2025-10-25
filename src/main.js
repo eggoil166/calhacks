@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
@@ -23,6 +24,14 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 directionalLight.position.set(0.5, 1, 0.25);
 scene.add(directionalLight);
 
+// Helpers for VR fallback
+const gridHelper = new THREE.GridHelper(10, 40, 0x444444, 0x222222);
+gridHelper.position.y = 0;
+gridHelper.visible = false;
+scene.add(gridHelper);
+const raycaster = new THREE.Raycaster();
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // y=0
+
 // Reticle for hit-test results
 const reticle = new THREE.Mesh(
   new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2),
@@ -45,15 +54,25 @@ let placedObject = null;
 let hitTestSource = null;
 let localReferenceSpace = null;
 let viewerSpace = null;
+let useAR = false;
+let useVR = false;
 
 const params = new URLSearchParams(location.search);
 const gltfUrl = params.get('model');
+const defaultGlb = 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
 
 async function loadModel(url) {
   return new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
     loader.load(url, (gltf) => {
       const root = gltf.scene;
+      // Scale model to a reasonable size (~25cm max dimension)
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const target = 0.25;
+      const scale = target / maxDim;
+      root.scale.setScalar(scale);
       root.traverse((obj) => {
         if (obj.isMesh) {
           obj.castShadow = true;
@@ -87,6 +106,24 @@ function ensurePlacedObject() {
   scene.add(placedObject);
 }
 
+function getControllerRay() {
+  const tempMatrix = new THREE.Matrix4();
+  tempMatrix.identity().extractRotation(controller.matrixWorld);
+  const rayOrigin = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+  const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix).normalize();
+  raycaster.set(rayOrigin, rayDirection);
+}
+
+function setPlacedObjectPoseFromFloorRay() {
+  if (!placedObject) return;
+  getControllerRay();
+  const hitPoint = new THREE.Vector3();
+  const hit = raycaster.ray.intersectPlane(floorPlane, hitPoint);
+  if (hit) {
+    placedObject.position.copy(hitPoint);
+  }
+}
+
 controller.addEventListener('selectstart', () => {
   isDragging = true;
   ensurePlacedObject();
@@ -108,40 +145,66 @@ resetBtn.onclick = () => {
 };
 buttonsRoot.appendChild(resetBtn);
 
-// AR Button
-const arButton = ARButton.createButton(renderer, {
-  requiredFeatures: ['hit-test'],
-  optionalFeatures: ['dom-overlay'],
-  domOverlay: { root: document.body }
-});
-buttonsRoot.appendChild(arButton);
+// XR Buttons: prefer AR; fall back to VR (for web browser without AR)
+async function setupXRButtons() {
+  let arSupported = false;
+  let vrSupported = false;
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    try { arSupported = await navigator.xr.isSessionSupported('immersive-ar'); } catch {}
+    try { vrSupported = await navigator.xr.isSessionSupported('immersive-vr'); } catch {}
+  }
+  if (arSupported) {
+    useAR = true;
+    const arButton = ARButton.createButton(renderer, {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay'],
+      domOverlay: { root: document.body }
+    });
+    buttonsRoot.appendChild(arButton);
+    statusEl.textContent = 'Aim at floor. Trigger to place/drag.';
+  } else if (vrSupported) {
+    useVR = true;
+    const vrButton = VRButton.createButton(renderer);
+    buttonsRoot.appendChild(vrButton);
+    gridHelper.visible = true;
+    statusEl.textContent = 'VR fallback: Trigger to place/drag on floor grid.';
+  } else {
+    statusEl.textContent = 'WebXR not supported.';
+  }
+}
+setupXRButtons();
 
 renderer.setAnimationLoop(render);
 
 async function onSessionStart() {
   const session = renderer.xr.getSession();
-  statusEl.textContent = 'Move controller to aim. Trigger to place or drag.';
-
-  localReferenceSpace = await session.requestReferenceSpace('local');
-  viewerSpace = await session.requestReferenceSpace('viewer');
-  hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
-
   session.addEventListener('end', onSessionEnd);
 
-  if (gltfUrl) {
-    try {
-      const model = await loadModel(gltfUrl);
-      if (!placedObject) {
-        placedObject = new THREE.Group();
-        placedObject.add(model);
-        scene.add(placedObject);
-      } else {
-        placedObject.add(model);
-      }
-      statusEl.textContent = 'Model loaded. Aim at floor and drag to move.';
-    } catch (e) {
-      console.warn('Failed to load model URL, using box fallback.', e);
-      statusEl.textContent = 'Using fallback cube. Aim at floor and drag to move.';
+  const urlToLoad = gltfUrl || defaultGlb;
+  try {
+    const model = await loadModel(urlToLoad);
+    if (!placedObject) {
+      placedObject = new THREE.Group();
+      placedObject.add(model);
+      scene.add(placedObject);
+    } else {
+      placedObject.add(model);
+    }
+  } catch (e) {
+    console.warn('Failed to load model URL, using box fallback.', e);
+  }
+
+  if (useAR) {
+    statusEl.textContent = 'Move controller to aim. Trigger to place or drag.';
+    localReferenceSpace = await session.requestReferenceSpace('local');
+    viewerSpace = await session.requestReferenceSpace('viewer');
+    hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+  } else if (useVR) {
+    statusEl.textContent = 'VR: trigger to place/drag on floor grid.';
+    gridHelper.visible = true;
+    // Position initial object in front if not dragging yet
+    if (placedObject && !isDragging) {
+      placedObject.position.set(0, 0, -1);
     }
   }
 }
@@ -157,7 +220,7 @@ renderer.xr.addEventListener('sessionstart', onSessionStart);
 renderer.xr.addEventListener('sessionend', onSessionEnd);
 
 function render(timestamp, frame) {
-  if (frame && hitTestSource && localReferenceSpace) {
+  if (useAR && frame && hitTestSource && localReferenceSpace) {
     const hitTestResults = frame.getHitTestResults(hitTestSource);
     if (hitTestResults.length > 0) {
       const hit = hitTestResults[0];
@@ -172,6 +235,10 @@ function render(timestamp, frame) {
     } else {
       reticle.visible = false;
     }
+  }
+
+  if (useVR && isDragging) {
+    setPlacedObjectPoseFromFloorRay();
   }
 
   renderer.render(scene, camera);
