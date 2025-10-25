@@ -1,88 +1,102 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
-import { X, Move, RotateCw, ZoomIn } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface ARViewerProps {
   glbUrl: string;
   onClose: () => void;
 }
 
+// Fullscreen AR viewer using WebXR hit-test and controller drag
 export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Initializing AR...');
-  const sessionRef = useRef<XRSession | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const modelRef = useRef<THREE.Object3D | null>(null);
 
   useEffect(() => {
     let renderer: THREE.WebGLRenderer | null = null;
-    let hitTestSource: XRHitTestSource | null = null;
+    let scene: THREE.Scene | null = null;
+    let camera: THREE.PerspectiveCamera | null = null;
     let reticle: THREE.Mesh | null = null;
-    let placed = false;
+    let placedRoot: THREE.Group | null = null;
+    let isDragging = false;
+    let hitTestSource: XRHitTestSource | null = null;
+
+    const ensurePlacedRoot = () => {
+      if (placedRoot) return;
+      placedRoot = new THREE.Group();
+      scene!.add(placedRoot);
+    };
+
+    const setFromReticle = () => {
+      if (!placedRoot || !reticle || !reticle.visible) return;
+      placedRoot.position.setFromMatrixPosition(reticle.matrix);
+      const q = new THREE.Quaternion().setFromRotationMatrix(reticle.matrix);
+      placedRoot.quaternion.copy(q);
+    };
+
+    const loadModel = async (url: string) => {
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(url);
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const target = 0.15; // ~15 cm target size
+      const scale = maxDim > 0 ? target / maxDim : 1;
+      model.scale.setScalar(scale);
+      return model;
+    };
 
     const init = async () => {
       if (!containerRef.current) return;
-
       if (!navigator.xr) {
         setError('WebXR not supported in this browser');
         return;
       }
-
-      const isARSupported = await navigator.xr.isSessionSupported('immersive-ar');
-      if (!isARSupported) {
+      const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+      if (!arSupported) {
         setError('AR not supported on this device');
         return;
       }
 
-      const scene = new THREE.Scene();
-      sceneRef.current = scene;
-
-      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
       containerRef.current.appendChild(renderer.domElement);
 
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      light.position.set(0.5, 1, 0.25);
-      scene.add(light);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(0.5, 1, 0.25);
+      scene.add(dir);
 
-      const loader = new GLTFLoader();
-      try {
-        setStatus('Loading model...');
-        const gltf = await loader.loadAsync(glbUrl);
-        const model = gltf.scene;
-
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.3 / maxDim;
-
-        model.scale.setScalar(scale);
-        model.position.sub(center.multiplyScalar(scale));
-        model.visible = false;
-
-        modelRef.current = model;
-        scene.add(model);
-      } catch (err) {
-        setError('Failed to load 3D model');
-        console.error(err);
-        return;
-      }
-
+      // Reticle
       reticle = new THREE.Mesh(
-        new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+        new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x4af2a1, transparent: true, opacity: 0.9 })
       );
       reticle.matrixAutoUpdate = false;
       reticle.visible = false;
       scene.add(reticle);
 
+      // Controller
+      const controller = renderer.xr.getController(0);
+      scene.add(controller);
+      controller.addEventListener('selectstart', () => {
+        isDragging = true;
+        ensurePlacedRoot();
+        setFromReticle();
+      });
+      controller.addEventListener('selectend', () => {
+        isDragging = false;
+      });
+
+      // Start AR
       try {
         setStatus('Starting AR session...');
         const session = await navigator.xr.requestSession('immersive-ar', {
@@ -90,66 +104,78 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
           optionalFeatures: ['dom-overlay'],
           domOverlay: { root: document.body }
         });
-
-        sessionRef.current = session;
         renderer.xr.setSession(session);
 
-        const referenceSpace = await session.requestReferenceSpace('viewer');
-        const hitTestSpace = await session.requestHitTestSource({ space: referenceSpace });
-        hitTestSource = hitTestSpace!;
+        // Hit test source
+        const viewerSpace = await session.requestReferenceSpace('viewer');
+        type SessionWithHitTest = XRSession & { requestHitTestSource: (opts: { space: XRReferenceSpace }) => Promise<XRHitTestSource> };
+        const s = session as unknown as SessionWithHitTest;
+        if (typeof s.requestHitTestSource !== 'function') {
+          setError('Hit-test not available');
+          return;
+        }
+        hitTestSource = (await s.requestHitTestSource({ space: viewerSpace })) ?? null;
 
-        setStatus('Tap to place model');
+        session.addEventListener('end', () => onClose());
 
-        session.addEventListener('end', () => {
-          sessionRef.current = null;
-          onClose();
-        });
+        // Load astronaut or provided GLB
+        try {
+          const url = glbUrl || 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
+          setStatus('Loading model...');
+          const model = await loadModel(url);
+          ensurePlacedRoot();
+          placedRoot!.add(model);
+          setStatus('Aim at floor. Hold trigger to drag.');
+        } catch (e) {
+          setError('Failed to load model');
+          console.error(e);
+        }
 
-        const onSelect = () => {
-          if (!placed && reticle && reticle.visible && modelRef.current) {
-            modelRef.current.position.setFromMatrixPosition(reticle.matrix);
-            modelRef.current.visible = true;
-            placed = true;
-            setStatus('Drag to move, pinch to scale');
+        // Render loop
+        renderer.setAnimationLoop((_ts, frame) => {
+          if (!renderer || !scene || !camera) return;
+          if (!frame || !hitTestSource) {
+            renderer.render(scene, camera);
+            return;
           }
-        };
-
-        session.addEventListener('select', onSelect);
-
-        renderer.setAnimationLoop((timestamp, frame) => {
-          if (!frame) return;
-
-          const referenceSpace = renderer.xr.getReferenceSpace();
-          if (!referenceSpace) return;
-
-          if (hitTestSource && !placed) {
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0 && reticle) {
-              const hit = hitTestResults[0];
-              const pose = hit.getPose(referenceSpace);
-              if (pose) {
-                reticle.visible = true;
-                reticle.matrix.fromArray(pose.transform.matrix);
-              }
+          const baseSpace = renderer.xr.getReferenceSpace();
+          if (!baseSpace) {
+            renderer.render(scene, camera);
+            return;
+          }
+          const results = frame.getHitTestResults(hitTestSource);
+          if (results.length > 0) {
+            const pose = results[0].getPose(baseSpace);
+            if (pose && reticle) {
+              reticle.visible = true;
+              reticle.matrix.fromArray(pose.transform.matrix);
+              if (isDragging) setFromReticle();
             }
+          } else if (reticle) {
+            reticle.visible = false;
           }
-
           renderer.render(scene, camera);
         });
-
       } catch (err) {
         setError('Failed to start AR session');
         console.error(err);
       }
+
+      const onResize = () => {
+        if (!renderer || !camera) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
+      window.addEventListener('resize', onResize);
     };
 
     init();
 
     return () => {
-      if (sessionRef.current) {
-        sessionRef.current.end();
-      }
       if (renderer) {
+        const s = renderer.xr.getSession();
+        if (s) s.end();
         renderer.dispose();
       }
     };
@@ -157,10 +183,7 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
 
   return (
     <div ref={containerRef} className="fixed inset-0 bg-black z-50">
-      <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-        <div className="bg-white bg-opacity-90 rounded-lg px-4 py-2 text-sm font-medium text-gray-800">
-          {status}
-        </div>
+      <div className="absolute top-4 right-4">
         <button
           onClick={onClose}
           className="bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full p-2 transition-colors"
@@ -168,78 +191,16 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
           <X className="w-6 h-6 text-gray-800" />
         </button>
       </div>
-
+      {status && !error && (
+        <div className="absolute top-4 left-4 bg-white bg-opacity-90 rounded-lg px-3 py-2 text-sm font-medium text-gray-800">
+          {status}
+        </div>
+      )}
       {error && (
-        <div className="absolute inset-x-4 top-20 bg-red-500 text-white rounded-lg px-4 py-3">
+        <div className="absolute top-16 left-4 right-4 bg-red-500 text-white rounded-lg px-4 py-3">
           {error}
         </div>
       )}
-
-      <div className="absolute bottom-8 left-4 right-4 bg-white bg-opacity-90 rounded-xl p-4 space-y-2">
-        <div className="flex items-center gap-3">
-          <Move className="w-5 h-5 text-gray-600" />
-          <span className="text-sm text-gray-700">Drag to move</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <ZoomIn className="w-5 h-5 text-gray-600" />
-          <span className="text-sm text-gray-700">Pinch to scale</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <RotateCw className="w-5 h-5 text-gray-600" />
-          <span className="text-sm text-gray-700">Rotate with two fingers</span>
-        </div>
-      </div>
     </div>
   );
-}
-
-declare global {
-  interface Navigator {
-    xr?: XRSystem;
-  }
-
-  interface XRSystem {
-    requestSession(mode: XRSessionMode, options?: XRSessionInit): Promise<XRSession>;
-    isSessionSupported(mode: XRSessionMode): Promise<boolean>;
-  }
-
-  interface XRSession extends EventTarget {
-    requestReferenceSpace(type: XRReferenceSpaceType): Promise<XRReferenceSpace>;
-    requestHitTestSource(options: XRHitTestOptionsInit): Promise<XRHitTestSource>;
-    end(): Promise<void>;
-  }
-
-  interface XRFrame {
-    getHitTestResults(hitTestSource: XRHitTestSource): XRHitTestResult[];
-    getPose(space: XRSpace, baseSpace: XRSpace): XRPose | undefined;
-  }
-
-  interface XRHitTestResult {
-    getPose(baseSpace: XRSpace): XRPose | undefined;
-  }
-
-  interface XRPose {
-    transform: XRRigidTransform;
-  }
-
-  interface XRRigidTransform {
-    matrix: Float32Array;
-  }
-
-  type XRSessionMode = 'inline' | 'immersive-vr' | 'immersive-ar';
-  type XRReferenceSpaceType = 'viewer' | 'local' | 'local-floor' | 'bounded-floor' | 'unbounded';
-
-  interface XRSessionInit {
-    requiredFeatures?: string[];
-    optionalFeatures?: string[];
-    domOverlay?: { root: Element };
-  }
-
-  interface XRHitTestOptionsInit {
-    space: XRSpace;
-  }
-
-  type XRSpace = any;
-  type XRReferenceSpace = any;
-  type XRHitTestSource = any;
 }
