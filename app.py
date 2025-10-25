@@ -1,8 +1,17 @@
 from llmgen.llm.generator_anthropic import parse_geom, gen_openscad
 from llmgen.utils.scadding import save_openscad
 
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route("/generate_scad", methods=["POST"])
+def generate_scad():
+    data = request.json
+    user_prompt = data.get("prompt")
+
 if __name__ == "__main__":
-    user_prompt = "Make me a 20mm long finger brace with a width of 15mm and a height of 10mm. It should have ventilation holes on the sides and a hinge mechanism at one end for easy removal. The brace should be designed to fit comfortably around an average adult finger, with a slight taper from the knuckle to the fingertip. Include a small tab on the hinge for easy gripping."
+    user_prompt = "generate a dog"
     print("Extracting geometry spec...")
     spec = parse_geom(user_prompt)
     print(spec.model_dump_json(indent=2))
