@@ -1,0 +1,19 @@
+{
+  "name": "webxr-ar-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --https",
+    "build": "vite build",
+    "preview": "vite preview --https"
+  },
+  "dependencies": {
+    "three": "^0.158.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.8",
+    "@vitejs/plugin-basic-ssl": "^1.1.0"
+  }
+}
+
