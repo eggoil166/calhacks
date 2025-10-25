@@ -1,17 +1,152 @@
-// Ring with flat top
-// Diameter: 18.5mm, Band Width: 5mm
-
-$fn = 100;
-
-difference() {
-    // Main ring body
-    cylinder(h = band_width, d = diameter, center = false);
+module main_body() {
+    length = 20;
+    width_proximal = 15;
+    width_distal = 13;
+    height = 10;
+    wall_thickness = 1.5;
+    inner_radius = 6;
     
-    // Inner hole
-    translate([0, 0, -0.5])
-    cylinder(h = band_width + 1, d = diameter - 2 * band_width, center = false);
+    difference() {
+        union() {
+            hull() {
+                translate([0, 0, 0])
+                    resize([width_proximal, height, 0])
+                    cylinder(r=inner_radius + wall_thickness, h=0.1, $fn=50);
+                translate([length, 0, 0])
+                    resize([width_distal, height, 0])
+                    cylinder(r=inner_radius + wall_thickness, h=0.1, $fn=50);
+            }
+        }
+        
+        hull() {
+            translate([0, 0, -0.1])
+                resize([width_proximal - 2*wall_thickness, height - 2*wall_thickness, 0])
+                cylinder(r=inner_radius, h=0.3, $fn=50);
+            translate([length, 0, -0.1])
+                resize([width_distal - 2*wall_thickness, height - 2*wall_thickness, 0])
+                cylinder(r=inner_radius, h=0.3, $fn=50);
+        }
+        
+        translate([-1, 0, -height/2])
+            cube([length + 2, height + 2, height]);
+    }
 }
 
-// Parameters
-diameter = 18.5;
-band_width = 5;
+module ventilation_hole_left_1() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module ventilation_hole_left_2() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module ventilation_hole_left_3() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module ventilation_hole_right_1() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module ventilation_hole_right_2() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module ventilation_hole_right_3() {
+    rotate([0, 90, 0])
+        cylinder(d=2, h=5, center=true, $fn=20);
+}
+
+module hinge_barrel_1() {
+    difference() {
+        rotate([0, 90, 0])
+            cylinder(d=3, h=3, center=true, $fn=30);
+        rotate([0, 90, 0])
+            cylinder(d=1, h=4, center=true, $fn=20);
+    }
+}
+
+module hinge_barrel_2() {
+    difference() {
+        rotate([0, 90, 0])
+            cylinder(d=3, h=3, center=true, $fn=30);
+        rotate([0, 90, 0])
+            cylinder(d=1, h=4, center=true, $fn=20);
+    }
+}
+
+module hinge_pin() {
+    rotate([0, 90, 0])
+        cylinder(d=1, h=8, center=true, $fn=20);
+}
+
+module grip_tab() {
+    width = 4;
+    height = 3;
+    thickness = 1.5;
+    fillet_radius = 0.5;
+    
+    hull() {
+        translate([0, -width/2 + fillet_radius, -height/2 + fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([0, width/2 - fillet_radius, -height/2 + fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([0, -width/2 + fillet_radius, height/2 - fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([0, width/2 - fillet_radius, height/2 - fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([thickness, -width/2 + fillet_radius, -height/2 + fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([thickness, width/2 - fillet_radius, -height/2 + fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([thickness, -width/2 + fillet_radius, height/2 - fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+        translate([thickness, width/2 - fillet_radius, height/2 - fillet_radius])
+            sphere(r=fillet_radius, $fn=20);
+    }
+}
+
+module assembly() {
+    difference() {
+        union() {
+            main_body();
+            
+            translate([0, 0, 3.5])
+                hinge_barrel_1();
+            
+            translate([0, 0, -3.5])
+                hinge_barrel_2();
+            
+            translate([-2, 0, 3.5])
+                grip_tab();
+        }
+        
+        translate([5, -5, 0])
+            ventilation_hole_left_1();
+        
+        translate([10, -5, 0])
+            ventilation_hole_left_2();
+        
+        translate([15, -5, 0])
+            ventilation_hole_left_3();
+        
+        translate([5, 5, 0])
+            ventilation_hole_right_1();
+        
+        translate([10, 5, 0])
+            ventilation_hole_right_2();
+        
+        translate([15, 5, 0])
+            ventilation_hole_right_3();
+    }
+    
+    translate([0, 0, 0])
+        hinge_pin();
+}
+
+assembly();
