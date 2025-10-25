@@ -126,7 +126,7 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
           id="prompt-textarea"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Example: L-bracket 80x80x5 mm, two 6 mm holes every 20 mm, fillet 4 mm"
+          placeholder="Example: L-bracket 80x80x5 mm, two 6 mm holes every 20 mm"
           className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
           disabled={isLoading}
         />
