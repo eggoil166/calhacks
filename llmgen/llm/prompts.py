@@ -44,6 +44,8 @@ Rules:
 5. Output only valid OpenSCAD code — no Markdown, commentary, or extra text.
 6. Include a final module `assembly()` that combines all parts.
 7. Consider practical fabrication and ergonomic constraints when defining parts (e.g., wall thickness, clearances).
+8. For slightly more complex shapes, use appropriate OpenSCAD libraries or functions. Alternatively, use open-source modules if necessary. 
+9. Whenever possible, ensure the model looks realistic as possible. 
 
 Geometry JSON:
 {geometry_json}
