@@ -1,152 +1,95 @@
-module main_body() {
-    length = 20;
-    width_proximal = 15;
-    width_distal = 13;
-    height = 10;
-    wall_thickness = 1.5;
-    inner_radius = 6;
-    
-    difference() {
-        union() {
-            hull() {
-                translate([0, 0, 0])
-                    resize([width_proximal, height, 0])
-                    cylinder(r=inner_radius + wall_thickness, h=0.1, $fn=50);
-                translate([length, 0, 0])
-                    resize([width_distal, height, 0])
-                    cylinder(r=inner_radius + wall_thickness, h=0.1, $fn=50);
-            }
-        }
-        
-        hull() {
-            translate([0, 0, -0.1])
-                resize([width_proximal - 2*wall_thickness, height - 2*wall_thickness, 0])
-                cylinder(r=inner_radius, h=0.3, $fn=50);
-            translate([length, 0, -0.1])
-                resize([width_distal - 2*wall_thickness, height - 2*wall_thickness, 0])
-                cylinder(r=inner_radius, h=0.3, $fn=50);
-        }
-        
-        translate([-1, 0, -height/2])
-            cube([length + 2, height + 2, height]);
-    }
+module body() {
+    scale([400, 200, 250])
+        sphere(r=0.5, $fn=50);
 }
 
-module ventilation_hole_left_1() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module head() {
+    translate([200, 0, 50])
+        scale([150, 120, 140])
+            sphere(r=0.5, $fn=50);
 }
 
-module ventilation_hole_left_2() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module snout() {
+    translate([200, 0, 50])
+        translate([75, 0, -20])
+            scale([80, 60, 50])
+                sphere(r=0.5, $fn=50);
 }
 
-module ventilation_hole_left_3() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module left_ear() {
+    translate([200, 0, 50])
+        translate([-20, 40, 70])
+            scale([60, 30, 80])
+                sphere(r=0.5, $fn=50);
 }
 
-module ventilation_hole_right_1() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module right_ear() {
+    translate([200, 0, 50])
+        translate([-20, -40, 70])
+            scale([60, 30, 80])
+                sphere(r=0.5, $fn=50);
 }
 
-module ventilation_hole_right_2() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module front_left_leg() {
+    translate([80, 60, -180])
+        cylinder(r=25, h=180, $fn=30);
 }
 
-module ventilation_hole_right_3() {
-    rotate([0, 90, 0])
-        cylinder(d=2, h=5, center=true, $fn=20);
+module front_right_leg() {
+    translate([80, -60, -180])
+        cylinder(r=25, h=180, $fn=30);
 }
 
-module hinge_barrel_1() {
-    difference() {
-        rotate([0, 90, 0])
-            cylinder(d=3, h=3, center=true, $fn=30);
-        rotate([0, 90, 0])
-            cylinder(d=1, h=4, center=true, $fn=20);
-    }
+module back_left_leg() {
+    translate([-80, 60, -180])
+        cylinder(r=25, h=180, $fn=30);
 }
 
-module hinge_barrel_2() {
-    difference() {
-        rotate([0, 90, 0])
-            cylinder(d=3, h=3, center=true, $fn=30);
-        rotate([0, 90, 0])
-            cylinder(d=1, h=4, center=true, $fn=20);
-    }
+module back_right_leg() {
+    translate([-80, -60, -180])
+        cylinder(r=25, h=180, $fn=30);
 }
 
-module hinge_pin() {
-    rotate([0, 90, 0])
-        cylinder(d=1, h=8, center=true, $fn=20);
+module tail() {
+    translate([-200, 0, 60])
+        rotate([0, 45, 0])
+            cylinder(r=15, h=120, $fn=30);
 }
 
-module grip_tab() {
-    width = 4;
-    height = 3;
-    thickness = 1.5;
-    fillet_radius = 0.5;
-    
-    hull() {
-        translate([0, -width/2 + fillet_radius, -height/2 + fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([0, width/2 - fillet_radius, -height/2 + fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([0, -width/2 + fillet_radius, height/2 - fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([0, width/2 - fillet_radius, height/2 - fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([thickness, -width/2 + fillet_radius, -height/2 + fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([thickness, width/2 - fillet_radius, -height/2 + fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([thickness, -width/2 + fillet_radius, height/2 - fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-        translate([thickness, width/2 - fillet_radius, height/2 - fillet_radius])
-            sphere(r=fillet_radius, $fn=20);
-    }
+module left_eye() {
+    translate([200, 0, 50])
+        translate([40, 35, 30])
+            sphere(r=12, $fn=30);
+}
+
+module right_eye() {
+    translate([200, 0, 50])
+        translate([40, -35, 30])
+            sphere(r=12, $fn=30);
+}
+
+module nose() {
+    translate([200, 0, 50])
+        translate([75, 0, -20])
+            translate([40, 0, 0])
+                color("black")
+                    sphere(r=15, $fn=30);
 }
 
 module assembly() {
-    difference() {
-        union() {
-            main_body();
-            
-            translate([0, 0, 3.5])
-                hinge_barrel_1();
-            
-            translate([0, 0, -3.5])
-                hinge_barrel_2();
-            
-            translate([-2, 0, 3.5])
-                grip_tab();
-        }
-        
-        translate([5, -5, 0])
-            ventilation_hole_left_1();
-        
-        translate([10, -5, 0])
-            ventilation_hole_left_2();
-        
-        translate([15, -5, 0])
-            ventilation_hole_left_3();
-        
-        translate([5, 5, 0])
-            ventilation_hole_right_1();
-        
-        translate([10, 5, 0])
-            ventilation_hole_right_2();
-        
-        translate([15, 5, 0])
-            ventilation_hole_right_3();
-    }
-    
-    translate([0, 0, 0])
-        hinge_pin();
+    body();
+    head();
+    snout();
+    left_ear();
+    right_ear();
+    front_left_leg();
+    front_right_leg();
+    back_left_leg();
+    back_right_leg();
+    tail();
+    left_eye();
+    right_eye();
+    nose();
 }
 
 assembly();
