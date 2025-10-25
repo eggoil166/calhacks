@@ -12,6 +12,7 @@ export function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showAR, setShowAR] = useState(false);
+  // removed auto-AR preference; AR only opens when user clicks
   const [error, setError] = useState<string | null>(null);
 
   const [modelId, setModelId] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function Home() {
       console.error(err);
     } finally {
       setIsGenerating(false);
+      // Do NOT auto-open AR; user will press See in AR when ready
     }
   };
 
@@ -79,18 +81,7 @@ export function Home() {
   }, [modelId, debouncedParams]);
 
   const handleSeeInAR = async () => {
-    if (!glbUrl) return;
-
-    if (navigator.xr) {
-      const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-      if (isSupported) {
-        setShowAR(true);
-        return;
-      }
-    }
-
-    const fallbackUrl = `/fallback?glb=${encodeURIComponent(glbUrl)}&usdz=${encodeURIComponent(usdzUrl)}`;
-    window.location.href = fallbackUrl;
+    setShowAR(true);
   };
 
   return (
