@@ -1,0 +1,17 @@
+// Ring with flat top
+// Diameter: 18.5mm, Band Width: 5mm
+
+$fn = 100;
+
+difference() {
+    // Main ring body
+    cylinder(h = band_width, d = diameter, center = false);
+    
+    // Inner hole
+    translate([0, 0, -0.5])
+    cylinder(h = band_width + 1, d = diameter - 2 * band_width, center = false);
+}
+
+// Parameters
+diameter = 18.5;
+band_width = 5;
