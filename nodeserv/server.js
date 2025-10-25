@@ -3,7 +3,7 @@ import axios from "axios";
 import fs from  "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
-import openscad from "openscad-wasm";
+import * as openscad from "openscad-wasm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +15,7 @@ const api_dir = "http://localhost:5000";
 const tmp_dir = path.join(__dirname, 'exports');
 await fs.ensureDir(tmp_dir);
 
-const scad = await openscad();
+const scad = await openscad.createOpenSCAD();
 
 async function compileSCAD(scadCode, format = "stl") {
   const inName = "input.scad";
