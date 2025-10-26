@@ -222,7 +222,7 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
         domOverlay: { root: document.body },
       });
       buttonRoot?.appendChild(arButton);
-      setStatus('Aim at a surface. Trigger = place/drag. Grip+stick = rotate/scale.');
+      setStatus('Tap AR button to start. Aim at a surface. Trigger = place/drag. Grip+stick = rotate/scale.');
     }
 
     setupAR();
