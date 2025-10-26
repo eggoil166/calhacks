@@ -4,7 +4,7 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { updateXRControls } from '/xrControls.js';
+import { updateXRControls } from './xrControls.js';
 
 const appRoot = document.getElementById('app');
 const buttonsRoot = document.getElementById('buttons');
@@ -151,11 +151,8 @@ const defaultGlb = 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.g
 async function loadModel(url) {
   return new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
-    console.log('Loading model from:', url);
-    statusEl.textContent = 'Loading model...';
     loader.load(url, (gltf) => {
       const root = gltf.scene;
-      console.log('Model loaded successfully');
       // Scale model to a reasonable size (~25cm max dimension)
       const box = new THREE.Box3().setFromObject(root);
       const size = box.getSize(new THREE.Vector3());
@@ -169,13 +166,8 @@ async function loadModel(url) {
           obj.receiveShadow = true;
         }
       });
-      statusEl.textContent = 'Model ready';
       resolve(root);
-    }, undefined, (error) => {
-      console.error('Failed to load model:', error);
-      statusEl.textContent = 'Failed to load model';
-      reject(error);
-    });
+    }, undefined, reject);
   });
 }
 
@@ -239,25 +231,16 @@ function setPlacedObjectPoseFromMouse(pointer) {
 }
 
 controller.addEventListener('selectstart', () => {
-  console.log('Controller select start - placing object');
   isDragging = true;
   ensurePlacedObject();
   if (useAR) {
     setPlacedObjectPoseFromReticle();
-    console.log('Placed object at reticle position');
   } else if (useVR) {
     setPlacedObjectPoseFromFloorRay();
-    console.log('Placed object at floor ray position');
-  }
-  if (placedObject) {
-    console.log('Placed object position:', placedObject.position);
-    console.log('Placed object visible:', placedObject.visible);
-    console.log('Placed object children:', placedObject.children.length);
   }
 });
 
 controller.addEventListener('selectend', () => {
-  console.log('Controller select end');
   isDragging = false;
 });
 
@@ -384,7 +367,7 @@ async function setupXRButtons() {
     // Desktop fallback (no WebXR): orbit controls and mouse drag on floor
     isDesktopMode = true;
     gridHelper.visible = true;
-    statusEl.textContent = 'Desktop mode: Loading model...';
+    statusEl.textContent = 'Desktop preview: left-drag places/moves model; scroll to zoom; right-drag to orbit.';
 
     camera.position.set(0.6, 1.6, 2.2);
     camera.lookAt(0, 1, 0);
@@ -393,26 +376,11 @@ async function setupXRButtons() {
     controls.target.set(0, 1, 0);
     controls.update();
 
-    // Load model immediately in desktop mode
-    const urlToLoad = gltfUrl || defaultGlb;
-    loadModel(urlToLoad).then((model) => {
-      placedObject = new THREE.Group();
-      placedObject.add(model);
-      placedObject.position.set(0, 0, 0);
-      scene.add(placedObject);
-      statusEl.textContent = 'Desktop: Left-drag to move, right-drag to orbit, scroll to zoom';
-      console.log('Desktop model loaded and placed');
-    }).catch((err) => {
-      console.error('Failed to load model in desktop mode:', err);
-      ensurePlacedObject();
-      statusEl.textContent = 'Desktop: Using fallback cube';
-    });
-
     let mouseDragging = false;
     renderer.domElement.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return; // left only
       mouseDragging = true;
-      if (!placedObject) ensurePlacedObject();
+      ensurePlacedObject();
       const p = updateMouseFromEvent(e);
       setPlacedObjectPoseFromMouse(p);
     });
@@ -435,9 +403,7 @@ async function onSessionStart() {
   const session = renderer.xr.getSession();
   session.addEventListener('end', onSessionEnd);
 
-  console.log('XR Session started, loading model...');
   const urlToLoad = gltfUrl || defaultGlb;
-  
   try {
     const model = await loadModel(urlToLoad);
     if (!placedObject) {
@@ -449,36 +415,22 @@ async function onSessionStart() {
       .filter(ch => ch.isMesh && ch.geometry && ch.geometry.type === 'BoxGeometry')
       .forEach(ch => placedObject.remove(ch));
     placedObject.add(model);
-    console.log('Model loaded and added to scene');
   } catch (e) {
-    console.error('Failed to load model URL, using box fallback:', e);
-    if (!placedObject) {
-      placedObject = createFallbackObject();
-      scene.add(placedObject);
-      console.log('Fallback cube created');
-    }
+    console.warn('Failed to load model URL, using box fallback.', e);
   }
 
   if (useAR) {
-    statusEl.textContent = '🎤 Hold B button for speech | Trigger to place/drag';
-    statusEl.style.background = 'rgba(74, 242, 161, 0.9)';
-    statusEl.style.fontSize = '16px';
-    statusEl.style.padding = '12px 16px';
+    statusEl.textContent = 'Move controller to aim. Trigger to place or drag.';
     localReferenceSpace = await session.requestReferenceSpace('local');
     viewerSpace = await session.requestReferenceSpace('viewer');
     hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
-    console.log('AR mode initialized');
   } else if (useVR) {
-    statusEl.textContent = '🎤 Hold B button for speech | Trigger to place/drag';
-    statusEl.style.background = 'rgba(74, 242, 161, 0.9)';
-    statusEl.style.fontSize = '16px';
-    statusEl.style.padding = '12px 16px';
+    statusEl.textContent = 'VR: trigger to place/drag on floor grid.';
     gridHelper.visible = true;
     // Position initial object in front if not dragging yet
     if (placedObject && !isDragging) {
       placedObject.position.set(0, 0, -1);
     }
-    console.log('VR mode initialized');
   }
 }
 
