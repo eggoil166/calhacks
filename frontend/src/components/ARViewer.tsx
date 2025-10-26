@@ -217,7 +217,7 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       }
 
       const arButton = ARButton.createButton(renderer, {
-        requiredFeatures: ['hit-test', 'local-floor'],
+        requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.body },
       });
@@ -274,9 +274,21 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       setStatus('Move controller to aim. Trigger=place/drag, Grip+stick=rotate/scale.');
 
       // reference spaces + hit test
-      localReferenceSpace = await session.requestReferenceSpace('local-floor').catch(() => session.requestReferenceSpace('local'));
-      viewerSpace = await session.requestReferenceSpace('viewer');
-      hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace! }) ?? null;
+      try {
+        localReferenceSpace = await session.requestReferenceSpace('local');
+      } catch {
+        localReferenceSpace = null;
+      }
+      
+      try {
+        viewerSpace = await session.requestReferenceSpace('viewer');
+      } catch {
+        viewerSpace = null;
+      }
+      
+      if (viewerSpace) {
+        hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace! }) ?? null;
+      }
 
       session.addEventListener('end', onSessionEnd);
     }
