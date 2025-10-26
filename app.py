@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 # Enable CORS if available
 if cors_available:
-    CORS(app, origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"])
+    CORS(app)
 else:
     # Manual CORS headers
     @app.after_request
@@ -26,7 +26,6 @@ else:
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
 
 @app.route("/api/generate_scad", methods=["POST"])
@@ -88,13 +87,12 @@ def text_to_speech():
 def edit_scad():
     data = request.json
     edit_request = data.get("edit_request")
-    historical_text = data.get("historical_text")
     current_scad = data.get("current_scad")
     """if data.get("use_gemini"):
         updated_spec = edit_existing_model2(edit_request, historical_text, current_scad)
         code = gen_openscad2(updated_spec)"""
     #else:
-    updated_spec = edit_existing_model(edit_request, historical_text, current_scad)
+    updated_spec = edit_existing_model(edit_request, current_scad)
     code, description = gen_openscad(updated_spec)  # Returns tuple
     code_blocks = [block.text for block in code if hasattr(block, "text")]
     joined_code = "\n".join(code_blocks)

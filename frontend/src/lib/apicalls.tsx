@@ -1,4 +1,4 @@
-export async function callClaudeFlash(requestText: string, contextText: string): Promise<{stlBuffer: ArrayBuffer, fileName: string}> {
+export async function callClaudeFlash(requestText: string, contextText: string): Promise<{glbBuffer: ArrayBuffer, fileName: string}> {
   const res = await fetch('http://localhost:8080/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -24,7 +24,43 @@ export async function callClaudeFlash(requestText: string, contextText: string):
     const fileName = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'model.stl';
     
     return {
-      stlBuffer: arrayBuffer,
+      glbBuffer: arrayBuffer,
+      fileName: fileName
+    };
+  } else {
+    // Handle JSON response (fallback)
+    const data = await res.json().catch(async () => ({ output: await res.text() }));
+    throw new Error(`Expected binary file but received: ${contentType}. Response: ${JSON.stringify(data)}`);
+  }
+}
+
+export async function editModel(requestText: string): Promise<{glbBuffer: ArrayBuffer, fileName: string}> {
+  const res = await fetch('http://localhost:8080/edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: requestText })
+  });
+  
+  if (!res.ok) {
+    // Clone the response to read text without consuming the body
+    const clonedRes = res.clone();
+    const msg = await safeReadText(clonedRes);
+    throw new Error(`Flash call failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+  }
+
+  // Check if response is binary data (STL or GLB)
+  const contentType = res.headers.get('content-type');
+  
+  if (contentType?.includes('application/octet-stream') || 
+      contentType?.includes('model/gltf-binary') ||
+      contentType?.includes('application/sla') ||
+      contentType?.includes('application/stl')) {
+    // Handle binary response (STL or GLB)
+    const arrayBuffer = await res.arrayBuffer();
+    const fileName = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'model.stl';
+    
+    return {
+      glbBuffer: arrayBuffer,
       fileName: fileName
     };
   } else {
