@@ -46,7 +46,7 @@ export function Home() {
 
     try {
       // Call the LLM API to generate SCAD and description
-      const llmResponse = await callClaudeFlash(prompt);
+      const llmResponse = await xcallClaudeFlash(prompt);
       
       // If there's a description from the LLM, generate and play audio
       if (llmResponse.description && llmResponse.description.trim()) {
