@@ -40,39 +40,61 @@ try {
 async function compileSCAD(scadCode, format = "stl") {
   try {
     console.log("Attempting to compile SCAD code...");
-    console.log("Available methods:", Object.keys(scad));
     
-    // Use the correct OpenSCAD WASM API
-    if (scad.renderToStl) {
-      // Direct render to STL
-      const stlData = await scad.renderToStl(scadCode);
-      return stlData;
-    } else if (scad.getInstance) {
-      // Get instance and use FS API
-      const instance = await scad.getInstance();
-      if (instance.FS && instance.FS.writeFile) {
-        const inName = "input.scad";
-        const outName = `output.${format}`;
-        
-        instance.FS.writeFile(inName, scadCode);
-        const args = ["-o", outName, inName];
-        const result = instance.callMain(args);
-        if (result !== 0) throw new Error(`OpenSCAD exited with code ${result}`);
-        const outputData = instance.FS.readFile(outName);
-        return outputData;
-      }
+    // Use getInstance method which is more reliable
+    const instance = await scad.getInstance();
+    console.log("OpenSCAD instance created");
+    
+    if (!instance.FS) {
+      throw new Error("OpenSCAD FS not available");
     }
     
-    throw new Error("OpenSCAD API not supported");
+    const inName = "input.scad";
+    const outName = `output.${format}`;
+    
+    // Write input file
+    instance.FS.writeFile(inName, scadCode);
+    console.log("SCAD file written to filesystem");
+    
+    // Compile
+    const args = ["-o", outName, inName];
+    console.log("Running OpenSCAD with args:", args);
+    const result = instance.callMain(args);
+    
+    console.log("OpenSCAD callMain result:", result);
+    
+    // Check if output file exists regardless of return code
+    try {
+      const outputData = instance.FS.readFile(outName);
+      console.log("Output data length:", outputData.length);
+      
+      if (outputData.length > 0) {
+        console.log("OpenSCAD compilation successful - file generated");
+        return outputData;
+      }
+    } catch (readError) {
+      console.log("Could not read output file:", readError.message);
+    }
+    
+    // If we get here, compilation failed - provide detailed error info
+    const errorMsg = result === 0 ? "No output file generated" : `OpenSCAD compilation failed with exit code ${result}`;
+    console.error("OpenSCAD compilation failed:", errorMsg);
+    throw new Error(errorMsg);
   } catch (error) {
     console.error("OpenSCAD compilation error:", error);
-    throw new Error(`OpenSCAD compilation failed: ${error.message}`);
+    // Ensure we always have a meaningful error message
+    const errorMessage = error.message || "Unknown OpenSCAD compilation error";
+    throw new Error(`OpenSCAD compilation failed: ${errorMessage}`);
   }
 }
 
 app.post("/generate", async (req, res) => {
   try {
     const { prompt, format = "stl" } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
 
     const geomResp = await axios.post(`${api_dir}/api/generate_scad`, { 'prompt': prompt });
     const ret = geomResp.data;
@@ -81,16 +103,22 @@ app.post("/generate", async (req, res) => {
     const scadCode = ret.scad_code || ret;
     console.log("Received SCAD code:", scadCode);
 
+    if (!scadCode) {
+      return res.status(400).json({ error: "No SCAD code received from backend" });
+    }
+
     const binary = await compileSCAD(scadCode, format);
 
     res.setHeader(
       "Content-Type",
-      format === "glb" ? "model/gltf-binary" : "application/octet-stream"
+      format === "stl" ? "application/sla" : "application/octet-stream"
     );
     res.send(Buffer.from(binary));
   } catch (err) {
     console.error("Error in /generate:", err);
-    res.status(500).json({ error: err.message });
+    // Ensure we always return a proper error message
+    const errorMessage = err.message || "Unknown server error";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
