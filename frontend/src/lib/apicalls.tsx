@@ -6,17 +6,22 @@ export async function callClaudeFlash(requestText: string, contextText: string):
   });
   
   if (!res.ok) {
-    const msg = await safeReadText(res);
+    // Clone the response to read text without consuming the body
+    const clonedRes = res.clone();
+    const msg = await safeReadText(clonedRes);
     throw new Error(`Flash call failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
   }
 
-  // Check if response is GLB binary data
+  // Check if response is binary data (STL or GLB)
   const contentType = res.headers.get('content-type');
   
-  if (contentType?.includes('application/octet-stream') || contentType?.includes('model/gltf-binary')) {
-    // Handle binary GLB response
+  if (contentType?.includes('application/octet-stream') || 
+      contentType?.includes('model/gltf-binary') ||
+      contentType?.includes('application/sla') ||
+      contentType?.includes('application/stl')) {
+    // Handle binary response (STL or GLB)
     const arrayBuffer = await res.arrayBuffer();
-    const fileName = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'model.glb';
+    const fileName = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'model.stl';
     
     return {
       glbBuffer: arrayBuffer,
@@ -25,7 +30,7 @@ export async function callClaudeFlash(requestText: string, contextText: string):
   } else {
     // Handle JSON response (fallback)
     const data = await res.json().catch(async () => ({ output: await res.text() }));
-    throw new Error(`Expected GLB file but received: ${contentType}. Response: ${JSON.stringify(data)}`);
+    throw new Error(`Expected binary file but received: ${contentType}. Response: ${JSON.stringify(data)}`);
   }
 }
 

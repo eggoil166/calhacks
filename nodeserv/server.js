@@ -3,7 +3,9 @@ import axios from "axios";
 import fs from  "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as openscad from "openscad-wasm";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,11 +29,13 @@ const api_dir = "http://127.0.0.1:5000";
 const tmp_dir = path.join(__dirname, 'exports');
 await fs.ensureDir(tmp_dir);
 
-// Initialize OpenSCAD
+// Initialize OpenSCAD - using system OpenSCAD instead of WASM
 let scad;
 try {
-  scad = await openscad.createOpenSCAD();
-  console.log("OpenSCAD initialized successfully");
+  // Test if OpenSCAD is available
+  await execAsync("openscad --version");
+  console.log("OpenSCAD system binary initialized successfully");
+  scad = true; // Just mark as available
 } catch (error) {
   console.error("Failed to initialize OpenSCAD:", error);
   throw error;
@@ -41,48 +45,38 @@ async function compileSCAD(scadCode, format = "stl") {
   try {
     console.log("Attempting to compile SCAD code...");
     
-    // Use getInstance method which is more reliable
-    const instance = await scad.getInstance();
-    console.log("OpenSCAD instance created");
+    const inputFile = path.join(tmp_dir, `input_${Date.now()}.scad`);
+    const outputFile = path.join(tmp_dir, `output_${Date.now()}.${format}`);
     
-    if (!instance.FS) {
-      throw new Error("OpenSCAD FS not available");
-    }
+    // Write SCAD code to file
+    await fs.writeFile(inputFile, scadCode);
+    console.log("SCAD file written to:", inputFile);
     
-    const inName = "input.scad";
-    const outName = `output.${format}`;
+    // Compile using system OpenSCAD
+    const command = `openscad -o "${outputFile}" "${inputFile}"`;
+    console.log("Running command:", command);
     
-    // Write input file
-    instance.FS.writeFile(inName, scadCode);
-    console.log("SCAD file written to filesystem");
+    const { stdout, stderr } = await execAsync(command);
+    console.log("OpenSCAD stdout:", stdout);
+    if (stderr) console.log("OpenSCAD stderr:", stderr);
     
-    // Compile
-    const args = ["-o", outName, inName];
-    console.log("Running OpenSCAD with args:", args);
-    const result = instance.callMain(args);
+    // Read the output file
+    const outputData = await fs.readFile(outputFile);
+    console.log("Output data length:", outputData.length);
     
-    console.log("OpenSCAD callMain result:", result);
-    
-    // Check if output file exists regardless of return code
-    try {
-      const outputData = instance.FS.readFile(outName);
-      console.log("Output data length:", outputData.length);
+    if (outputData.length > 0) {
+      console.log("OpenSCAD compilation successful - file generated");
       
-      if (outputData.length > 0) {
-        console.log("OpenSCAD compilation successful - file generated");
-        return outputData;
-      }
-    } catch (readError) {
-      console.log("Could not read output file:", readError.message);
+      // Clean up temporary files
+      await fs.remove(inputFile).catch(() => {});
+      await fs.remove(outputFile).catch(() => {});
+      
+      return outputData;
+    } else {
+      throw new Error("No output file generated");
     }
-    
-    // If we get here, compilation failed - provide detailed error info
-    const errorMsg = result === 0 ? "No output file generated" : `OpenSCAD compilation failed with exit code ${result}`;
-    console.error("OpenSCAD compilation failed:", errorMsg);
-    throw new Error(errorMsg);
   } catch (error) {
     console.error("OpenSCAD compilation error:", error);
-    // Ensure we always have a meaningful error message
     const errorMessage = error.message || "Unknown OpenSCAD compilation error";
     throw new Error(`OpenSCAD compilation failed: ${errorMessage}`);
   }
@@ -100,7 +94,17 @@ app.post("/generate", async (req, res) => {
     const ret = geomResp.data;
     
     // Extract the SCAD code from the response
-    const scadCode = ret.scad_code || ret;
+    let scadCode = ret.scad_code || ret;
+    
+    // If the SCAD code includes a description, extract just the OpenSCAD code
+    if (typeof scadCode === 'string' && scadCode.includes('module ')) {
+      // Find the first occurrence of 'module ' and extract everything from there
+      const moduleIndex = scadCode.indexOf('module ');
+      if (moduleIndex !== -1) {
+        scadCode = scadCode.substring(moduleIndex);
+      }
+    }
+    
     console.log("Received SCAD code:", scadCode);
 
     if (!scadCode) {

@@ -5,6 +5,7 @@ import { ParamPanel } from '../components/ParamPanel';
 import ModelViewer from '../components/ModelViewer';
 import { ARViewer } from '../components/ARViewer';
 import { nlpToCAD, cadToMesh, xcallClaudeFlash, textToSpeech } from '../lib/api';
+import { callClaudeFlash } from '../lib/apicalls';
 import { useDebounce } from '../hooks/useDebounce';
 import type { CADParameter } from '../lib/types';
 
@@ -55,16 +56,29 @@ export function Home() {
         );
       }
       
-      // Continue with existing mock flow
-      const result = await nlpToCAD(prompt);
+      // ALSO call the Claude Flash endpoint to get GLB file
+      const context = 'Units: mm. Output a 3D model as STL.';
+      const result = await callClaudeFlash(prompt, context);
+      
+      console.log('✅ STL file received:', result.fileName);
+      
+      // Convert STL buffer to URL for loading into viewer
+      const blob = new Blob([result.glbBuffer], { type: 'model/stl' });
+      const url = URL.createObjectURL(blob);
+      
+      // Set the STL URL to load it in the viewer
+      setStlUrl(url);
+      
+      // Continue with existing mock flow for parameters
+      const cadResult = await nlpToCAD(prompt);
 
-      setModelId(result.modelId);
-      setTitle(result.title);
-      setUnits(result.units);
-      setParameters(result.parameters);
+      setModelId(cadResult.modelId);
+      setTitle(cadResult.title);
+      setUnits(cadResult.units);
+      setParameters(cadResult.parameters);
 
       const defaultParams: Record<string, number> = {};
-      result.parameters.forEach(param => {
+      cadResult.parameters.forEach(param => {
         defaultParams[param.name] = param.default;
       });
       setParamValues(defaultParams);
@@ -88,7 +102,11 @@ export function Home() {
       try {
         const result = await cadToMesh(modelId, debouncedParams);
 
-        setStlUrl(result.stlUrl);
+        // Only update stlUrl if we don't already have a generated STL
+        // (i.e., if stlUrl is not a blob URL from callClaudeFlash)
+        if (!stlUrl || !stlUrl.startsWith('blob:')) {
+          setStlUrl(result.stlUrl);
+        }
         setWarnings(result.meta.warnings || []);
 
       } catch (err) {
@@ -100,7 +118,7 @@ export function Home() {
     };
 
     regenerate();
-  }, [modelId, debouncedParams]);
+  }, [modelId, debouncedParams, stlUrl]);
 
   const handleSeeInAR = async () => {
     setShowAR(true);
