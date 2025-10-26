@@ -151,7 +151,7 @@ export function PromptInput({ onGenerate, isLoading, externalPrompt, onPromptCha
             >
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-2xl font-bold">Describe your 3D part</h2>
+            <h2 className="text-2xl font-bold">What would you like to create?</h2>
           </div>
 
           <div className="relative">
@@ -202,7 +202,7 @@ export function PromptInput({ onGenerate, isLoading, externalPrompt, onPromptCha
               }}
             >
               {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              {isRecording ? 'Stop Recording' : 'Speak (Speech to Text)'}
+              {isRecording ? 'Stop Recording' : 'Get assistance'}
             </motion.button>
 
             <motion.button

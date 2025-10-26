@@ -45,7 +45,7 @@ const STLCard: React.FC<Props> = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Dark tech card styles
+  // Card styles
   const cardStyle: React.CSSProperties = hideCard ? {
     background: "transparent",
     border: "none",
@@ -58,14 +58,14 @@ const STLCard: React.FC<Props> = ({
     margin: 0,
     padding: 0,
   } : {
-    borderRadius: 24,
-    boxShadow: "var(--shadow-card)",
+    borderRadius: 0,
+    boxShadow: "none",
     background: "var(--bg-glass)",
     backdropFilter: "blur(20px)",
     color: "var(--text-primary)",
     overflow: "hidden",
     border: "1px solid var(--border-primary)",
-    maxWidth: "900px",
+    maxWidth: "800px",
     width: "100%",
     margin: "0 auto",
   };

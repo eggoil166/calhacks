@@ -1,0 +1,158 @@
+{
+	"info": {
+		"_postman_id": "python-api-collection",
+		"name": "Vision Forge - Python API",
+		"description": "Collection for the Python Flask server running on port 5000",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Test Endpoint",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:5000/api/test",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"test"
+					]
+				},
+				"description": "Test if the Python Flask server is running"
+			},
+			"response": []
+		},
+		{
+			"name": "Generate SCAD Code",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/generate_scad",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"generate_scad"
+					]
+				},
+				"description": "Generate OpenSCAD code from a text prompt using Claude AI"
+			},
+			"response": []
+		},
+		{
+			"name": "Edit SCAD Code",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"edit_request\": \"make the cube taller\",\n  \"historical_text\": \"User asked for a cube\",\n  \"current_scad\": \"module cube() { cube([20,20,20]); }\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/edit_scad",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"edit_scad"
+					]
+				},
+				"description": "Edit existing SCAD code based on edit request and context"
+			},
+			"response": []
+		},
+		{
+			"name": "Text to Speech",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"text\": \"Hello, this is a test of the text to speech functionality.\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/text-to-speech",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"text-to-speech"
+					]
+				},
+				"description": "Convert text to speech and return MP3 audio file"
+			},
+			"response": []
+		},
+		{
+			"name": "Claude Flash API",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"request\": \"create a 3D model of a house\",\n  \"context\": \"Units: mm. Output a 3D model as STL.\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/claude/flash",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"claude",
+						"flash"
+					]
+				},
+				"description": "Direct Claude AI API call for generating 3D models"
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	]
+}

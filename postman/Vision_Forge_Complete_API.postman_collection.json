@@ -1,0 +1,397 @@
+{
+	"info": {
+		"_postman_id": "vision-forge-complete",
+		"name": "Vision Forge - Complete API Collection",
+		"description": "Complete collection for both Node.js and Python APIs with workflow examples",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Checks",
+			"item": [
+				{
+					"name": "Python API Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{python_base_url}}/api/test",
+							"host": [
+								"{{python_base_url}}"
+							],
+							"path": [
+								"api",
+								"test"
+							]
+						}
+					}
+				},
+				{
+					"name": "Node.js API Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{node_base_url}}/",
+							"host": [
+								"{{node_base_url}}"
+							],
+							"path": [
+								""
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Complete Workflow Examples",
+			"item": [
+				{
+					"name": "Generate Cube - Full Workflow",
+					"item": [
+						{
+							"name": "1. Generate SCAD Code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/generate_scad",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"generate_scad"
+									]
+								}
+							}
+						},
+						{
+							"name": "2. Compile to STL",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\",\n  \"format\": \"stl\"\n}"
+								},
+								"url": {
+									"raw": "{{node_base_url}}/generate",
+									"host": [
+										"{{node_base_url}}"
+									],
+									"path": [
+										"generate"
+									]
+								}
+							}
+						},
+						{
+							"name": "3. Generate Audio Description",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"text\": \"I've generated a simple cube with dimensions 20x20x20mm. This is a basic geometric shape that can be used as a building block for more complex designs.\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/text-to-speech",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"text-to-speech"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Generate Cylinder - Full Workflow",
+					"item": [
+						{
+							"name": "1. Generate SCAD Code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a cylinder with radius 10mm and height 30mm\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/generate_scad",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"generate_scad"
+									]
+								}
+							}
+						},
+						{
+							"name": "2. Compile to STL",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a cylinder with radius 10mm and height 30mm\",\n  \"format\": \"stl\"\n}"
+								},
+								"url": {
+									"raw": "{{node_base_url}}/generate",
+									"host": [
+										"{{node_base_url}}"
+									],
+									"path": [
+										"generate"
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Individual Endpoints",
+			"item": [
+				{
+					"name": "Python API",
+					"item": [
+						{
+							"name": "Generate SCAD Code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/generate_scad",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"generate_scad"
+									]
+								}
+							}
+						},
+						{
+							"name": "Edit SCAD Code",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"edit_request\": \"make the cube taller\",\n  \"historical_text\": \"User asked for a cube\",\n  \"current_scad\": \"module cube() { cube([20,20,20]); }\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/edit_scad",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"edit_scad"
+									]
+								}
+							}
+						},
+						{
+							"name": "Text to Speech",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"text\": \"Hello, this is a test of the text to speech functionality.\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/text-to-speech",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"text-to-speech"
+									]
+								}
+							}
+						},
+						{
+							"name": "Claude Flash API",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"request\": \"create a 3D model of a house\",\n  \"context\": \"Units: mm. Output a 3D model as STL.\"\n}"
+								},
+								"url": {
+									"raw": "{{python_base_url}}/api/claude/flash",
+									"host": [
+										"{{python_base_url}}"
+									],
+									"path": [
+										"api",
+										"claude",
+										"flash"
+									]
+								}
+							}
+						}
+					]
+				},
+				{
+					"name": "Node.js API",
+					"item": [
+						{
+							"name": "Generate STL",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\",\n  \"format\": \"stl\"\n}"
+								},
+								"url": {
+									"raw": "{{node_base_url}}/generate",
+									"host": [
+										"{{node_base_url}}"
+									],
+									"path": [
+										"generate"
+									]
+								}
+							}
+						},
+						{
+							"name": "Generate GLB",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"prompt\": \"create a cylinder with radius 10mm and height 30mm\",\n  \"format\": \"glb\"\n}"
+								},
+								"url": {
+									"raw": "{{node_base_url}}/generate",
+									"host": [
+										"{{node_base_url}}"
+									],
+									"path": [
+										"generate"
+									]
+								}
+							}
+						},
+						{
+							"name": "Edit Model",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"edit_request\": \"make the cube taller\",\n  \"historical_text\": \"User asked for a cube\",\n  \"current_scad\": \"module cube() { cube([20,20,20]); }\"\n}"
+								},
+								"url": {
+									"raw": "{{node_base_url}}/edit",
+									"host": [
+										"{{node_base_url}}"
+									],
+									"path": [
+										"edit"
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "python_base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "node_base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
+}

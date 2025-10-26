@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Eye, AlertCircle, Glasses, Box, Sparkles } from 'lucide-react';
 import { PromptInput } from '../components/PromptInput';
-import { ParamPanel } from '../components/ParamPanel';
 import ModelViewer from '../components/ModelViewer';
 import { VoiceOrb } from '../components/VoiceOrb';
 import { nlpToCAD, cadToMesh, xcallClaudeFlash } from '../lib/api';
@@ -16,8 +15,6 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const [modelId, setModelId] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [units, setUnits] = useState('mm');
   const [parameters, setParameters] = useState<CADParameter[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [stlUrl, setStlUrl] = useState('');
@@ -61,8 +58,6 @@ export function Home() {
       const cadResult = await nlpToCAD(prompt);
 
       setModelId(cadResult.modelId);
-      setTitle(cadResult.title);
-      setUnits(cadResult.units);
       setParameters(cadResult.parameters);
       setParamValues(cadResult.parameters.reduce((acc, param) => {
         acc[param.name] = param.default;
@@ -133,8 +128,6 @@ export function Home() {
           warnings: []
         };
         setModelId(mockResult.modelId);
-        setTitle(mockResult.title);
-        setUnits(mockResult.units);
         setParameters(mockResult.parameters);
         setParamValues(mockResult.parameters.reduce((acc, param) => {
           acc[param.name] = param.default;
@@ -389,26 +382,6 @@ export function Home() {
               onTranscript={handleVoiceTranscript}
             />
           </motion.div>
-
-          {/* Parameters Panel */}
-          {parameters.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="mb-8 relative"
-            >
-              {/* Section tech lines */}
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-var(--accent-secondary) to-transparent opacity-20" />
-              <ParamPanel
-                parameters={parameters}
-                title={title}
-                units={units}
-                onParametersChange={setParamValues}
-                isRegenerating={isRegenerating}
-              />
-            </motion.div>
-          )}
 
           {/* Model Viewer */}
           <motion.div

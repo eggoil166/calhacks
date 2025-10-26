@@ -1,0 +1,124 @@
+{
+	"info": {
+		"_postman_id": "node-api-collection",
+		"name": "Vision Forge - Node.js API",
+		"description": "Collection for the Node.js OpenSCAD compilation server running on port 8080",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						""
+					]
+				},
+				"description": "Check if the Node.js server is running"
+			},
+			"response": []
+		},
+		{
+			"name": "Generate STL from Prompt",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"prompt\": \"create a simple cube with dimensions 20x20x20mm\",\n  \"format\": \"stl\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/generate",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"generate"
+					]
+				},
+				"description": "Generate STL file from a text prompt. Returns binary STL data."
+			},
+			"response": []
+		},
+		{
+			"name": "Generate GLB from Prompt",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"prompt\": \"create a cylinder with radius 10mm and height 30mm\",\n  \"format\": \"glb\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/generate",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"generate"
+					]
+				},
+				"description": "Generate GLB file from a text prompt. Returns binary GLB data."
+			},
+			"response": []
+		},
+		{
+			"name": "Edit Existing Model",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"edit_request\": \"make the cube taller\",\n  \"historical_text\": \"User asked for a cube\",\n  \"current_scad\": \"module cube() { cube([20,20,20]); }\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/edit",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"edit"
+					]
+				},
+				"description": "Edit an existing SCAD model based on edit request and current SCAD code."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
+}
