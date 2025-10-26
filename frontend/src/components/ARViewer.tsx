@@ -74,11 +74,24 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
 
     // --- helpers ---
     function createFallbackObject(): THREE.Group {
+      console.log('🔧 Creating fallback cube...');
+      
       const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-      const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.6, metalness: 0.1 });
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xff0000, // RED for visibility
+        roughness: 0.6, 
+        metalness: 0.1 
+      });
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
       const group = new THREE.Group();
       group.add(mesh);
+      
+      console.log('✅ Fallback cube created:', group);
+      console.log('📍 Cube position:', mesh.position);
+      console.log('👁️ Cube visible:', mesh.visible);
       return group;
     }
 
@@ -90,21 +103,26 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
 
     // STL loader + scale/center to ~25cm max dimension
     async function loadSTL(url: string) {
+      console.log('🔧 Loading STL from URL:', url);
+      
       const loader = new STLLoader();
       return new Promise<THREE.Object3D>((resolve, reject) => {
         loader.load(
           url,
           (geometry) => {
+            console.log('✅ STL geometry loaded:', geometry);
             geometry.computeVertexNormals();
             // Center geometry to origin
             geometry.center();
 
             const material = new THREE.MeshStandardMaterial({
-              color: 0xcccccc,
+              color: 0x3b82f6,
               metalness: 0.1,
               roughness: 0.6,
             });
             const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
 
             // Autoscale to ~0.25m max dimension
             geometry.computeBoundingBox();
@@ -117,10 +135,17 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
 
             const group = new THREE.Group();
             group.add(mesh);
+            
+            console.log('✅ STL model created:', group);
+            console.log('📏 Model scale:', scale);
+            console.log('📍 Model position:', mesh.position);
             resolve(group);
           },
           undefined,
-          reject
+          (error) => {
+            console.error('❌ STL loading failed:', error);
+            reject(error);
+          }
         );
       });
     }
@@ -204,27 +229,45 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
 
     // --- session lifecycle ---
     async function onSessionStart() {
+      console.log('🎯 XR Session started');
       const session = renderer.xr.getSession() as XRSessionAny;
+      session.addEventListener('end', onSessionEnd);
 
-      // Load STL or use cube fallback
-      if (stlUrl && stlUrl.trim()) {
-        try {
-          const obj = await loadSTL(stlUrl);
-          if (!placedObject) {
-            placedObject = new THREE.Group();
-            scene.add(placedObject);
-          }
-          // Remove cube fallback children if any
-          placedObject.children
-            .filter((ch) => ch instanceof THREE.Mesh && ch.geometry?.type === 'BoxGeometry')
-            .forEach((ch) => placedObject?.remove(ch));
-          placedObject.add(obj);
-        } catch (e) {
-          console.warn('Failed to load STL, using cube fallback.', e);
-          ensurePlacedObject();
+      console.log('📦 Loading model:', stlUrl || 'fallback cube');
+      
+      try {
+        let model: THREE.Object3D;
+        if (stlUrl && stlUrl.trim()) {
+          model = await loadSTL(stlUrl);
+          console.log('✅ STL model loaded successfully');
+        } else {
+          model = createFallbackObject();
+          console.log('✅ Using fallback cube');
         }
-      } else {
-        // No STL URL provided, just use cube fallback
+        
+        if (!placedObject) {
+          placedObject = new THREE.Group();
+          scene.add(placedObject);
+          console.log('📦 Created placed object group');
+        }
+        
+        // Remove cube fallback children if any
+        placedObject.children
+          .filter((ch) => ch instanceof THREE.Mesh && ch.geometry?.type === 'BoxGeometry')
+          .forEach((ch) => {
+            placedObject?.remove(ch);
+            console.log('🗑️ Removed old fallback cube');
+          });
+        
+        placedObject.add(model);
+        console.log('✅ Model added to scene');
+        
+        // Ensure model is visible
+        placedObject.visible = true;
+        console.log('👁️ Model visibility set to true');
+        
+      } catch (e) {
+        console.error('❌ Failed to load model, using cube fallback.', e);
         ensurePlacedObject();
       }
 
@@ -279,6 +322,11 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       if (!mounted) return;
       const dt = lastTs ? (timestamp - lastTs) / 1000 : 0.016;
       lastTs = timestamp;
+
+      // Debug: Log render calls occasionally
+      if (Math.floor(timestamp / 1000) % 5 === 0 && Math.floor(timestamp) % 1000 < 50) {
+        console.log('🎬 Render called - timestamp:', timestamp, 'frame:', !!frame);
+      }
 
       if (frame && hitTestSource && localReferenceSpace) {
         const hits = frame.getHitTestResults?.(hitTestSource) ?? [];
