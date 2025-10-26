@@ -22,7 +22,7 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
   const canvasRootRef = useRef<HTMLDivElement>(null);
   const buttonRootRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState('Initializing...');
+  const [status, setStatus] = useState('Loading AR...');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -75,16 +75,12 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
     let viewerSpace: XRReferenceSpace | null = null;
 
     async function loadSTL(url: string) {
-      console.log('🔧 Loading STL from URL:', url);
-      
       const loader = new STLLoader();
       return new Promise<THREE.Object3D>((resolve, reject) => {
         loader.load(
           url,
           (geometry) => {
-            console.log('✅ STL geometry loaded:', geometry);
             geometry.computeVertexNormals();
-            // Center geometry to origin
             geometry.center();
 
             const material = new THREE.MeshStandardMaterial({
@@ -107,15 +103,10 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
 
             const group = new THREE.Group();
             group.add(mesh);
-            
-            console.log('✅ STL model created:', group);
-            console.log('📏 Model scale:', scale);
-            console.log('📍 Model position:', mesh.position);
             resolve(group);
           },
           undefined,
           (error) => {
-            console.error('❌ STL loading failed:', error);
             reject(error);
           }
         );
@@ -123,11 +114,9 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
     }
 
     function createFallbackObject(): THREE.Group {
-      console.log('🔧 Creating fallback cube...');
-      
       const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0xff0000, // RED for visibility
+        color: 0xff0000,
         roughness: 0.6, 
         metalness: 0.1 
       });
@@ -137,10 +126,6 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
       
       const group = new THREE.Group();
       group.add(mesh);
-      
-      console.log('✅ Fallback cube created:', group);
-      console.log('📍 Cube position:', mesh.position);
-      console.log('👁️ Cube visible:', mesh.visible);
       return group;
     }
 
@@ -223,12 +208,11 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
               domOverlay: { root: document.body }
             });
             buttonRoot.appendChild(arButton);
-            setStatus('Aim at floor. Trigger to place/drag.');
+            setStatus('Ready for AR - Click button to start');
           } else {
             setStatus('AR not supported on this device');
           }
-        } catch (e) {
-          console.error('AR setup failed:', e);
+        } catch {
           setStatus('AR setup failed');
         }
       } else {
@@ -238,26 +222,20 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
     setupARButton();
 
     async function onSessionStart() {
-      console.log('🎯 XR Session started');
       const session = renderer.xr.getSession() as XRSessionAny;
       session.addEventListener('end', onSessionEnd);
 
-      console.log('📦 Loading model:', stlUrl || 'fallback cube');
-      
       try {
         let model: THREE.Object3D;
         if (stlUrl && stlUrl.trim()) {
           model = await loadSTL(stlUrl);
-          console.log('✅ STL model loaded successfully');
         } else {
           model = createFallbackObject();
-          console.log('✅ Using fallback cube');
         }
         
         if (!placedObject) {
           placedObject = new THREE.Group();
           scene.add(placedObject);
-          console.log('📦 Created placed object group');
         }
         
         // Remove cube fallback children if any
@@ -265,31 +243,22 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
           .filter((ch) => ch instanceof THREE.Mesh && ch.geometry?.type === 'BoxGeometry')
           .forEach((ch) => {
             placedObject?.remove(ch);
-            console.log('🗑️ Removed old fallback cube');
           });
         
         placedObject.add(model);
-        console.log('✅ Model added to scene');
-        
-        // Ensure model is visible
         placedObject.visible = true;
-        console.log('👁️ Model visibility set to true');
         
-      } catch (e) {
-        console.error('❌ Failed to load model, using cube fallback.', e);
+      } catch {
         ensurePlacedObject();
       }
 
-      console.log('🎯 Setting up AR session');
       setStatus('Move controller to aim. Trigger to place or drag.');
       
       try {
         localReferenceSpace = await session.requestReferenceSpace('local');
         viewerSpace = await session.requestReferenceSpace('viewer');
         hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace! }) ?? null;
-        console.log('✅ AR session setup complete');
-      } catch (e) {
-        console.error('❌ AR session setup failed:', e);
+      } catch {
         localReferenceSpace = null;
         viewerSpace = null;
         hitTestSource = null;
@@ -360,7 +329,7 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
         }
       });
     };
-  }, [stlUrl, onClose, mounted]);
+  }, [stlUrl, onClose]);
 
   if (!mounted) {
     return <div>Loading AR Viewer...</div>;
