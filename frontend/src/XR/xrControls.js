@@ -7,7 +7,7 @@
 // - Stick press (3): reset rotation/scale/clipping
 
 const ROTATION_SENSITIVITY = 1.5; // radians/sec at full deflection
-const SCALE_STEP = 0.02; // per frame when button held
+const SCALE_STEP = 0.05; // per frame when button held (increased for better responsiveness)
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 10.0;
 const CLIP_HEIGHT_STEP = 0.01; // meters per frame when left stick Y held
@@ -78,6 +78,34 @@ export function updateXRControls(session, placedObject, deltaSeconds = 0.016) {
   if (scaleDelta !== 0) {
     state.scale = clamp(state.scale * (1 + scaleDelta), MIN_SCALE, MAX_SCALE);
     placedObject.scale.setScalar(state.scale);
+    
+    // Visual feedback: briefly highlight the object when scaling
+    placedObject.traverse((obj) => {
+      if (obj.isMesh && obj.material) {
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        mats.forEach((m) => {
+          if (!m.userData.originalEmissive) {
+            m.userData.originalEmissive = m.emissive ? m.emissive.clone() : new THREE.Color(0x000000);
+          }
+          // Add subtle glow when scaling
+          m.emissive.setHex(0x444444);
+        });
+      }
+    });
+    
+    // Reset emissive after a short delay
+    setTimeout(() => {
+      placedObject.traverse((obj) => {
+        if (obj.isMesh && obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => {
+            if (m.userData.originalEmissive) {
+              m.emissive.copy(m.userData.originalEmissive);
+            }
+          });
+        }
+      });
+    }, 100);
   }
 
   // Apply clipping plane if enabled

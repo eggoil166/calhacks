@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { updateXRControls } from './xrControls.js';
@@ -146,28 +147,100 @@ let controls = null;
 
 const params = new URLSearchParams(location.search);
 const gltfUrl = params.get('model');
+const stlUrl = params.get('stl'); // Support STL files via URL parameter
 const defaultGlb = 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
 
-async function loadModel(url) {
+// Function to load STL file from URL or data
+async function loadSTLFromData(stlData) {
   return new Promise((resolve, reject) => {
-    const loader = new GLTFLoader();
-    loader.load(url, (gltf) => {
-      const root = gltf.scene;
+    const loader = new STLLoader();
+    loader.parse(stlData, (geometry) => {
+      // Create material for STL
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0x3b82f6, 
+        roughness: 0.6, 
+        metalness: 0.1 
+      });
+      
+      // Create mesh from STL geometry
+      const mesh = new THREE.Mesh(geometry, material);
+      
       // Scale model to a reasonable size (~25cm max dimension)
-      const box = new THREE.Box3().setFromObject(root);
+      const box = new THREE.Box3().setFromObject(mesh);
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
       const target = 0.25;
       const scale = target / maxDim;
-      root.scale.setScalar(scale);
-      root.traverse((obj) => {
-        if (obj.isMesh) {
-          obj.castShadow = true;
-          obj.receiveShadow = true;
-        }
-      });
+      mesh.scale.setScalar(scale);
+      
+      // Enable shadows
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      // Create group to match GLTF structure
+      const root = new THREE.Group();
+      root.add(mesh);
       resolve(root);
-    }, undefined, reject);
+    }, reject);
+  });
+}
+
+async function loadModel(url) {
+  return new Promise((resolve, reject) => {
+    const isSTL = url.toLowerCase().endsWith('.stl');
+    
+    if (isSTL) {
+      // Load STL file
+      const loader = new STLLoader();
+      loader.load(url, (geometry) => {
+        // Create material for STL
+        const material = new THREE.MeshStandardMaterial({ 
+          color: 0x3b82f6, 
+          roughness: 0.6, 
+          metalness: 0.1 
+        });
+        
+        // Create mesh from STL geometry
+        const mesh = new THREE.Mesh(geometry, material);
+        
+        // Scale model to a reasonable size (~25cm max dimension)
+        const box = new THREE.Box3().setFromObject(mesh);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const target = 0.25;
+        const scale = target / maxDim;
+        mesh.scale.setScalar(scale);
+        
+        // Enable shadows
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // Create group to match GLTF structure
+        const root = new THREE.Group();
+        root.add(mesh);
+        resolve(root);
+      }, undefined, reject);
+    } else {
+      // Load GLB/GLTF file
+      const loader = new GLTFLoader();
+      loader.load(url, (gltf) => {
+        const root = gltf.scene;
+        // Scale model to a reasonable size (~25cm max dimension)
+        const box = new THREE.Box3().setFromObject(root);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const target = 0.25;
+        const scale = target / maxDim;
+        root.scale.setScalar(scale);
+        root.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.castShadow = true;
+            obj.receiveShadow = true;
+          }
+        });
+        resolve(root);
+      }, undefined, reject);
+    }
   });
 }
 
@@ -397,39 +470,120 @@ async function setupXRButtons() {
 }
 setupXRButtons();
 
+// Setup STL file upload
+const loadSTLBtn = document.getElementById('loadSTLBtn');
+const stlFileInput = document.getElementById('stlFileInput');
+
+if (loadSTLBtn && stlFileInput) {
+  loadSTLBtn.addEventListener('click', () => {
+    stlFileInput.click();
+  });
+
+  stlFileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    console.log('📁 Loading STL file:', file.name);
+    statusEl.textContent = 'Loading STL file...';
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const model = await loadSTLFromData(arrayBuffer);
+      
+      // Replace current model
+      if (placedObject) {
+        // Remove existing children
+        while (placedObject.children.length > 0) {
+          placedObject.remove(placedObject.children[0]);
+        }
+        placedObject.add(model);
+        console.log('✅ STL file loaded and added to scene');
+        statusEl.textContent = 'STL file loaded successfully!';
+      } else {
+        // Create new placed object
+        placedObject = new THREE.Group();
+        placedObject.add(model);
+        scene.add(placedObject);
+        console.log('✅ STL file loaded and created new object');
+        statusEl.textContent = 'STL file loaded successfully!';
+      }
+      
+      // Reset file input
+      stlFileInput.value = '';
+      
+    } catch (error) {
+      console.error('❌ Failed to load STL file:', error);
+      statusEl.textContent = 'Failed to load STL file';
+    }
+  });
+}
+
 renderer.setAnimationLoop(render);
 
 async function onSessionStart() {
+  console.log('🎯 XR Session started');
   const session = renderer.xr.getSession();
   session.addEventListener('end', onSessionEnd);
 
-  const urlToLoad = gltfUrl || defaultGlb;
+  const urlToLoad = gltfUrl || stlUrl || defaultGlb;
+  console.log('📦 Loading model:', urlToLoad);
+  
   try {
     const model = await loadModel(urlToLoad);
+    console.log('✅ Model loaded successfully');
+    
     if (!placedObject) {
       placedObject = new THREE.Group();
       scene.add(placedObject);
+      console.log('📦 Created placed object group');
     }
+    
     // Remove cube fallback children if any
     placedObject.children
       .filter(ch => ch.isMesh && ch.geometry && ch.geometry.type === 'BoxGeometry')
-      .forEach(ch => placedObject.remove(ch));
+      .forEach(ch => {
+        placedObject.remove(ch);
+        console.log('🗑️ Removed fallback cube');
+      });
+    
     placedObject.add(model);
+    console.log('✅ Model added to scene');
+    
+    // Ensure model is visible
+    placedObject.visible = true;
+    console.log('👁️ Model visibility set to true');
+    
   } catch (e) {
-    console.warn('Failed to load model URL, using box fallback.', e);
+    console.error('❌ Failed to load model URL, using box fallback.', e);
+    // Create fallback object
+    if (!placedObject) {
+      placedObject = createFallbackObject();
+      scene.add(placedObject);
+      console.log('📦 Created fallback cube');
+    }
   }
 
   if (useAR) {
+    console.log('🎯 Setting up AR session');
     statusEl.textContent = 'Move controller to aim. Trigger to place or drag.';
-    localReferenceSpace = await session.requestReferenceSpace('local');
-    viewerSpace = await session.requestReferenceSpace('viewer');
-    hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+    
+    try {
+      localReferenceSpace = await session.requestReferenceSpace('local');
+      viewerSpace = await session.requestReferenceSpace('viewer');
+      hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+      console.log('✅ AR hit-test source created');
+    } catch (e) {
+      console.error('❌ Failed to setup AR hit-test:', e);
+      statusEl.textContent = 'AR setup failed. Check console for details.';
+    }
   } else if (useVR) {
+    console.log('🥽 Setting up VR session');
     statusEl.textContent = 'VR: trigger to place/drag on floor grid.';
     gridHelper.visible = true;
     // Position initial object in front if not dragging yet
     if (placedObject && !isDragging) {
       placedObject.position.set(0, 0, -1);
+      console.log('📍 Positioned object in VR space');
     }
   }
 }
@@ -473,6 +627,20 @@ function render(timestamp, frame) {
   const session = renderer.xr.getSession();
   if (session && placedObject) {
     updateXRControls(session, placedObject, dt);
+    
+    // Update status with current scale and control info
+    const state = placedObject.userData.controlState;
+    if (state) {
+      const scalePercent = Math.round(state.scale * 100);
+      let statusText = `Scale: ${scalePercent}%`;
+      if (state.clipEnabled) {
+        statusText += ` | Clipping: ON`;
+      }
+      if (state.placementLocked) {
+        statusText += ` | Locked`;
+      }
+      statusEl.textContent = statusText;
+    }
   }
 
   // Check for 'B' button press on controller to trigger speech
