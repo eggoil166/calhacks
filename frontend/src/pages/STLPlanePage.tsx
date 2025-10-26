@@ -3,17 +3,38 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Box, Download, RotateCcw } from "lucide-react";
 import STLPlaneViewer from "../components/STLPlaneViewer";
 import { editModel } from "../lib/apicalls";
+import { xcallClaudeFlash } from "../lib/api";
 
 const STLPlanePage: React.FC = () => {
   const [stlUrl, setStlUrl] = useState<string>("");
   const [stlBuffer, setStlBuffer] = useState<ArrayBuffer | null>(null);
   const [editPrompt, setEditPrompt] = useState<string>("");
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [ttsTranscript, setTtsTranscript] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
+  const playDescriptionAudio = useCallback(async (description: string) => {
+    try {
+      setTtsTranscript(description);
+      const audioBlob = await textToSpeech(description);
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      const audio = new Audio(url);
+      audio.play();
+    } catch (err) {
+      console.error('TTS playback failed:', err);
+    }
+  }, []);
+
 
   const handleEdit = async (prompt: string) => {
     try {
       setIsEditing(true);
       const result = await editModel(prompt);
+      const xcall = await xcallClaudeFlash(prompt);
+      if (result.description && result.description.trim()) {
+        await playDescriptionAudio(result.description);
+      }
 
       console.log("✅ STL file received:", result.fileName);
 
