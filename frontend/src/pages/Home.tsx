@@ -18,9 +18,24 @@ export function Home() {
   const [parameters, setParameters] = useState<CADParameter[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [stlUrl, setStlUrl] = useState('');
+  const [stlBuffer, setStlBuffer] = useState<ArrayBuffer | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   const debouncedParams = useDebounce(paramValues, 400);
+
+  const handleDownloadSTL = () => {
+    if (!stlBuffer) return;
+    
+    const blob = new Blob([stlBuffer], { type: 'model/stl' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'generated-model.stl';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
 
   const handleGenerate = async (prompt: string) => {
@@ -50,7 +65,8 @@ export function Home() {
       // Set the STL URL to load it in the viewer
       setStlUrl(url);
       
-      // Store STL data for STL Plane Viewer
+      // Store STL buffer for direct loading (avoids blob URL issues)
+      setStlBuffer(result.stlBuffer);
       sessionStorage.setItem('generatedSTLUrl', url);
       sessionStorage.setItem('generatedSTLBuffer', JSON.stringify(Array.from(new Uint8Array(result.stlBuffer))));
       
@@ -393,15 +409,15 @@ export function Home() {
             {/* Section tech lines */}
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-var(--accent-primary) to-transparent opacity-20" />
             <ModelViewer 
-              src={stlUrl} 
-              title={stlUrl ? "" : "Upload STL File"} 
-              showUpload={!stlUrl}
-              hideCard={!!stlUrl}
+              stlBuffer={stlBuffer || undefined}
+              title={stlBuffer ? "" : "Upload STL File"} 
+              showUpload={!stlBuffer}
+              hideCard={!!stlBuffer}
             />
           </motion.div>
 
           {/* Action Buttons */}
-          {stlUrl && (
+          {stlBuffer && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -410,20 +426,20 @@ export function Home() {
             >
               <button
                 onClick={handleSeeInAR}
-                disabled={!stlUrl || isRegenerating}
+                disabled={!stlBuffer || isRegenerating}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold transition-all duration-200 shadow-lg shadow-blue-600/20"
               >
                 <Eye className="w-5 h-5" />
                 View in AR
               </button>
-              <a
-                href={stlUrl}
-                download
+              <button
+                onClick={handleDownloadSTL}
+                disabled={!stlBuffer}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-gray-50 text-gray-700 font-semibold transition-all duration-200 shadow-lg border border-gray-200"
               >
                 <Download className="w-5 h-5" />
                 Download STL
-              </a>
+              </button>
             </motion.div>
           )}
         </main>

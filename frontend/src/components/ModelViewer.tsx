@@ -212,12 +212,18 @@ const STLCard: React.FC<Props> = ({
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 
-    // Target controls & lookAt the true center
-    controls.target.copy(center);
+    // Center the model at origin
+    object.position.sub(center);
+    
+    // Now the box center is at origin
+    const newCenter = new THREE.Vector3(0, 0, 0);
+    
+    // Target controls & lookAt the origin (where the model is now centered)
+    controls.target.copy(newCenter);
     controls.update();
 
     // Compute distance that fits both height and width
-    const padding = 1.2; // 20% margin
+    const padding = 1.5; // 50% margin for better framing
     const fovY = THREE.MathUtils.degToRad(camera.fov);
     const fovX = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
 
@@ -225,23 +231,23 @@ const STLCard: React.FC<Props> = ({
     const distW = (size.x * padding) / (2 * Math.tan(fovX / 2));
     const dist = Math.max(distH, distW, size.z * 1.5);
 
-    // 3/4 view from above
+    // 3/4 view from above at a good angle
     const az = Math.PI / 4;
-    const el = Math.PI / 5;
+    const el = Math.PI / 4.5;
     const offset = new THREE.Vector3(
       Math.cos(el) * Math.cos(az),
       Math.sin(el),
       Math.cos(el) * Math.sin(az)
     ).multiplyScalar(dist);
 
-    camera.position.copy(center).add(offset);
+    camera.position.copy(offset);
     camera.near = Math.max(dist / 1000, 0.01);
     camera.far = dist * 100;
     camera.updateProjectionMatrix();
-    camera.lookAt(center);
+    camera.lookAt(newCenter);
 
     // Controls bounds so user zoom doesn't immediately clip
-    controls.minDistance = dist * 0.2;
+    controls.minDistance = dist * 0.3;
     controls.maxDistance = dist * 5;
     controls.update();
   };
