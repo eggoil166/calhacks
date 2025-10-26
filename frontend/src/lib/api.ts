@@ -2,20 +2,35 @@ import type { CADParameter } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-export async function callClaudeFlash(payload: string): Promise<string> {
+export async function xcallClaudeFlash(payload: string): Promise<{scad_code: string, description: string}> {
   console.log("payload", payload)
   const response = await fetch(`http://localhost:5000/api/generate_scad`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: "{\"prompt\": \"" + payload + "\"}"
+    body: JSON.stringify({ prompt: payload })
   });
-  console.log("random rsspeon");
-  return "hello";
+  
   if (!response.ok) {
     throw new Error(`Claude flash failed: ${response.statusText}`);
   }
-  console.log(response);
-  return response.json();
+  
+  const data = await response.json();
+  console.log("Response data:", data);
+  return data;
+}
+
+export async function textToSpeech(text: string): Promise<Blob> {
+  const response = await fetch(`http://localhost:5000/api/text-to-speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Text-to-speech failed: ${response.statusText}`);
+  }
+  
+  return await response.blob();
 }
 
 export interface NLPToCADRequest {
