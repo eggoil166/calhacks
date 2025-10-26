@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Eye, AlertCircle } from 'lucide-react';
+import { Download, Eye, AlertCircle, Glasses } from 'lucide-react';
 import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
 import { ModelViewer } from '../components/ModelViewer';
