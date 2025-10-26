@@ -4,7 +4,7 @@ import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
 import { ModelViewer } from '../components/ModelViewer';
 import { ARViewer } from '../components/ARViewer';
-import { nlpToCAD, cadToMesh, callClaudeFlash, textToSpeech } from '../lib/api';
+import { nlpToCAD, cadToMesh, xcallClaudeFlash, textToSpeech } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 import type { CADParameter } from '../lib/types';
 
