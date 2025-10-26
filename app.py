@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 # Enable CORS if available
 if cors_available:
-    CORS(app)
+    CORS(app, origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"])
 else:
     # Manual CORS headers
     @app.after_request
@@ -26,6 +26,7 @@ else:
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
 
 @app.route("/api/generate_scad", methods=["POST"])

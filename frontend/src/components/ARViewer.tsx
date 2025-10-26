@@ -15,10 +15,11 @@ type XRFrameAny = XRFrame & {
 
 interface ARViewerProps {
   stlUrl: string;
+  stlBuffer?: ArrayBuffer;
   onClose: () => void;
 }
 
-const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
+const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, stlBuffer, onClose }) => {
   const canvasRootRef = useRef<HTMLDivElement>(null);
   const buttonRootRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -227,7 +228,34 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
 
       try {
         let model: THREE.Object3D;
-        if (stlUrl && stlUrl.trim()) {
+        if (stlBuffer) {
+          // Use buffer directly
+          const loader = new STLLoader();
+          const geometry = loader.parse(stlBuffer);
+          geometry.computeVertexNormals();
+          geometry.center();
+
+          const material = new THREE.MeshStandardMaterial({
+            color: 0x3b82f6,
+            metalness: 0.1,
+            roughness: 0.6,
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+
+          geometry.computeBoundingBox();
+          const bb = geometry.boundingBox!;
+          const size = new THREE.Vector3().subVectors(bb.max, bb.min);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const target = 0.25;
+          const scale = target / maxDim;
+          mesh.scale.setScalar(scale);
+
+          const group = new THREE.Group();
+          group.add(mesh);
+          model = group;
+        } else if (stlUrl && stlUrl.trim()) {
           model = await loadSTL(stlUrl);
         } else {
           model = createFallbackObject();
@@ -329,10 +357,33 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
         }
       });
     };
-  }, [stlUrl, onClose]);
+  }, [stlUrl, stlBuffer, onClose]);
 
   if (!mounted) {
-    return <div>Loading AR Viewer...</div>;
+    return (
+      <div 
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100vw', 
+          height: '100vh', 
+          zIndex: 1000,
+          background: 'var(--bg-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--text-primary)'
+        }}
+      >
+        <div className="tech-glass rounded-2xl p-8 tech-border">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <span>Loading AR Viewer...</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -343,23 +394,27 @@ const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
       width: '100vw', 
       height: '100vh', 
       zIndex: 1000,
-      background: 'black'
+      background: 'var(--bg-primary)'
     }}>
       <div ref={canvasRootRef} style={{ width: '100%', height: '100%' }} />
       <div ref={buttonRootRef} />
       <div 
         ref={statusRef}
+        className="tech-glass tech-border"
         style={{
           position: 'fixed',
           bottom: '20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '8px',
+          color: 'var(--text-primary)',
+          padding: '12px 24px',
+          borderRadius: '12px',
           fontSize: '14px',
-          zIndex: 1001
+          zIndex: 1001,
+          background: 'var(--bg-glass)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid var(--border-primary)',
+          boxShadow: 'var(--shadow-glow)'
         }}
       >
         {status}

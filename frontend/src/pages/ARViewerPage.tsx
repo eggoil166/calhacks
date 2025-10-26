@@ -3,14 +3,28 @@ import { ARViewer } from '../components/ARViewer';
 
 const ARViewerPage: React.FC = () => {
   const [stlUrl, setStlUrl] = useState<string>("");
+  const [stlBuffer, setStlBuffer] = useState<ArrayBuffer | null>(null);
 
   // Check for generated STL data on component mount
   useEffect(() => {
     const generatedUrl = sessionStorage.getItem('generatedSTLUrl');
+    const generatedBuffer = sessionStorage.getItem('generatedSTLBuffer');
     
     if (generatedUrl) {
+      // Try to use the blob URL first
       setStlUrl(generatedUrl);
       console.log('Loaded generated STL URL for AR:', generatedUrl);
+    }
+    
+    if (generatedBuffer) {
+      try {
+        const bufferArray = JSON.parse(generatedBuffer);
+        const buffer = new Uint8Array(bufferArray).buffer;
+        setStlBuffer(buffer);
+        console.log('Loaded generated STL buffer for AR:', buffer.byteLength, 'bytes');
+      } catch (error) {
+        console.error('Failed to parse generated STL buffer:', error);
+      }
     }
   }, []);
 
@@ -27,9 +41,9 @@ const ARViewerPage: React.FC = () => {
       width: '100vw', 
       height: '100vh', 
       zIndex: 1000,
-      background: 'black'
+      background: 'var(--bg-primary)'
     }}>
-      <ARViewer stlUrl={stlUrl} onClose={handleClose} />
+      <ARViewer stlUrl={stlUrl} stlBuffer={stlBuffer || undefined} onClose={handleClose} />
     </div>
   );
 };

@@ -42,37 +42,46 @@ const STLCard: React.FC<Props> = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Basic card styles
+  // Dark tech card styles
   const cardStyle: React.CSSProperties = {
-    borderRadius: 16,
-    boxShadow:
-      "0 1px 2px rgba(0,0,0,0.2), 0 12px 32px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.06)",
-    background: "#11131a",
-    color: "#e7e9ef",
+    borderRadius: 24,
+    boxShadow: "var(--shadow-card)",
+    background: "var(--bg-glass)",
+    backdropFilter: "blur(20px)",
+    color: "var(--text-primary)",
     overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid var(--border-primary)",
+    maxWidth: "900px",
+    width: "100%",
+    margin: "0 auto",
   };
   const headerStyle: React.CSSProperties = {
-    padding: "12px 16px",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    padding: "16px 24px",
+    borderBottom: "1px solid var(--border-secondary)",
     fontWeight: 600,
-    fontSize: 14,
+    fontSize: 16,
     letterSpacing: 0.25,
+    background: "var(--bg-card)",
+    color: "var(--text-primary)",
   };
   const canvasWrapStyle: React.CSSProperties = {
     position: "relative",
     height,
-    background: bg,
+    background: "var(--bg-secondary)",
+    width: "100%",
   };
   const badgeStyle: React.CSSProperties = {
     position: "absolute",
-    top: 12,
-    left: 12,
-    padding: "4px 8px",
-    borderRadius: 999,
+    top: 16,
+    left: 16,
+    padding: "6px 12px",
+    borderRadius: 20,
     fontSize: 12,
-    background: "rgba(255,255,255,0.06)",
+    background: "rgba(0, 212, 255, 0.1)",
     backdropFilter: "blur(6px)",
+    color: "var(--accent-primary)",
+    fontWeight: 500,
+    border: "1px solid var(--border-primary)",
   };
 
   useEffect(() => {
@@ -87,30 +96,29 @@ const STLCard: React.FC<Props> = ({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
 
     // Camera
     const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
+    camera.position.set(3, 3, 3);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
     // Lights
     const hemi = new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 1.0);
     const dir = new THREE.DirectionalLight(0xffffff, 1.1);
     dir.position.set(3, 6, 8);
+    dir.castShadow = true;
     scene.add(hemi, dir);
 
-    // Ground "card" shadow catcher (soft)
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(2.5, 64),
-      new THREE.ShadowMaterial({ opacity: 0.25 })
-    );
+    // (Optional) soft ground shadow catcher — comment out if unwanted
+    const groundMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(2.5, 64), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.01;
     ground.receiveShadow = true;
-    // (Enable shadows)
-    renderer.shadowMap.enabled = true;
-    dir.castShadow = true;
-    // You can comment the next line to hide the ground
     scene.add(ground);
 
     // Controls
@@ -121,18 +129,23 @@ const STLCard: React.FC<Props> = ({
     // Mount
     mountRef.current.appendChild(renderer.domElement);
 
-    // Resize handling
+    // Resize handling (guard against zero height)
     const resize = () => {
-      const el = mountRef.current!;
-      const w = el.clientWidth;
-      const h = el.clientHeight;
+      if (!mountRef.current) return;
+      const el = mountRef.current;
+      const w = el.clientWidth || 1;
+      let h = el.clientHeight || height;
+      if (h < 1) h = height;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
     };
+
+    // Size once before first render
+    resize();
+
     const ro = new ResizeObserver(resize);
     ro.observe(mountRef.current);
-    resize();
 
     // Render loop
     const tick = () => {
@@ -152,65 +165,114 @@ const STLCard: React.FC<Props> = ({
         renderer.domElement.parentNode.removeChild(renderer.domElement);
       }
       scene.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) {
-          if (obj.geometry) obj.geometry.dispose();
-          if (obj.material) {
-            if (Array.isArray(obj.material)) {
-              obj.material.forEach((mat) => mat.dispose());
-            } else {
-              obj.material.dispose();
-            }
-          }
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          m.geometry?.dispose();
+          const mat = m.material;
+          if (Array.isArray(mat)) mat.forEach((mm) => mm.dispose());
+          else mat?.dispose();
         }
       });
     };
   }, [height, bg]);
 
-  // Load STL whenever src, stlBuffer, or uploadedFile changes
+  // Fit object to view: centers by box center and fits both width & height
+  const frameObject = (object: THREE.Object3D) => {
+    const camera = cameraRef.current!;
+    const controls = controlsRef.current!;
+
+    // Ensure world matrices are current for accurate Box3
+    object.updateWorldMatrix(true, true);
+
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    // Target controls & lookAt the true center
+    controls.target.copy(center);
+    controls.update();
+
+    // Compute distance that fits both height and width
+    const padding = 1.2; // 20% margin
+    const fovY = THREE.MathUtils.degToRad(camera.fov);
+    const fovX = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
+
+    const distH = (size.y * padding) / (2 * Math.tan(fovY / 2));
+    const distW = (size.x * padding) / (2 * Math.tan(fovX / 2));
+    const dist = Math.max(distH, distW, size.z * 1.5);
+
+    // 3/4 view from above
+    const az = Math.PI / 4;
+    const el = Math.PI / 5;
+    const offset = new THREE.Vector3(
+      Math.cos(el) * Math.cos(az),
+      Math.sin(el),
+      Math.cos(el) * Math.sin(az)
+    ).multiplyScalar(dist);
+
+    camera.position.copy(center).add(offset);
+    camera.near = Math.max(dist / 1000, 0.01);
+    camera.far = dist * 100;
+    camera.updateProjectionMatrix();
+    camera.lookAt(center);
+
+    // Controls bounds so user zoom doesn't immediately clip
+    controls.minDistance = dist * 0.2;
+    controls.maxDistance = dist * 5;
+    controls.update();
+  };
+
+  // Load STL whenever inputs change
   useEffect(() => {
     if (!sceneRef.current || !rendererRef.current || !cameraRef.current) return;
-    
-    // Don't try to load if there's no STL data
+
+    // No STL available
     if (!src && !stlBuffer && !uploadedFile) {
       setStatus("idle");
       return;
     }
-    
-    const loadSTL = async () => {
-      setStatus("loading");
-      setError(null);
 
-      const scene = sceneRef.current!;
-      const camera = cameraRef.current!;
-      const loader = new STLLoader();
+    const scene = sceneRef.current!;
+    const loader = new STLLoader();
 
-      // Remove previous mesh if any
-      const old = scene.getObjectByName("stl-root");
-      if (old) scene.remove(old);
+    // Remove previous mesh if any
+    const old = scene.getObjectByName("stl-root");
+    if (old) {
+      scene.remove(old);
+      // dispose old resources
+      old.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          m.geometry?.dispose();
+          const mat = m.material;
+          if (Array.isArray(mat)) mat.forEach((mm) => mm.dispose());
+          else mat?.dispose();
+        }
+      });
+    }
 
+    const load = async () => {
       try {
-        let geometry: THREE.BufferGeometry;
+        setStatus("loading");
+        setError(null);
 
+        let geometry: THREE.BufferGeometry;
         if (stlBuffer) {
-          // Load from buffer
           geometry = loader.parse(stlBuffer);
         } else if (uploadedFile) {
-          // Load from uploaded file
-          const arrayBuffer = await uploadedFile.arrayBuffer();
-          geometry = loader.parse(arrayBuffer);
+          const ab = await uploadedFile.arrayBuffer();
+          geometry = loader.parse(ab);
         } else if (src) {
-          // Load from URL
-          geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
-            loader.load(src, resolve, undefined, reject);
-          });
+          geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) =>
+            loader.load(src, resolve, undefined, reject)
+          );
         } else {
           throw new Error("No STL data provided");
         }
 
         geometry.computeVertexNormals();
-
-        // Center and scale: put mesh around origin, fit to view
         geometry.center();
+
         const material = new THREE.MeshStandardMaterial({
           color,
           metalness: 0.15,
@@ -220,41 +282,28 @@ const STLCard: React.FC<Props> = ({
         mesh.name = "stl-root";
         mesh.castShadow = true;
         mesh.receiveShadow = false;
+
         scene.add(mesh);
 
-        // Fit to view
-        const box = new THREE.Box3().setFromObject(mesh);
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const dist = maxDim * 1.8; // camera distance multiplier
-        camera.position.set(dist, dist * 0.8, dist);
-        camera.near = dist / 100;
-        camera.far = dist * 100;
-        camera.updateProjectionMatrix();
-
-        // Controls target
-        controlsRef.current!.target.copy(center);
-        controlsRef.current!.update();
+        // Ensure added before framing
+        mesh.updateWorldMatrix(true, true);
+        frameObject(mesh);
 
         setStatus("ready");
-      } catch (err) {
-        console.error("STL load error:", err);
+      } catch (e) {
+        console.error("STL load error:", e);
         setError("Failed to load STL. Check the file format and try again.");
         setStatus("error");
       }
     };
 
-    loadSTL();
-  }, [src, stlBuffer, uploadedFile, color]);
+    load();
+  }, [src, stlBuffer, uploadedFile, color, height]);
 
   // File upload handlers
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.name.toLowerCase().endsWith('.stl')) {
+    if (file && file.name.toLowerCase().endsWith(".stl")) {
       setUploadedFile(file);
       setStatus("loading");
     } else {
@@ -271,7 +320,7 @@ const STLCard: React.FC<Props> = ({
     setUploadedFile(null);
     setStatus("idle");
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -285,6 +334,7 @@ const STLCard: React.FC<Props> = ({
           </span>
         )}
       </div>
+
       <div ref={mountRef} style={canvasWrapStyle}>
         {status !== "ready" && (
           <div
@@ -293,60 +343,83 @@ const STLCard: React.FC<Props> = ({
               inset: 0,
               display: "grid",
               placeItems: "center",
-              color: "#cfd3e0",
-              fontSize: 13,
-              background:
-                status === "error" ? "rgba(200,0,0,0.06)" : "transparent",
+              color: "#6b7280",
+              fontSize: 14,
+              background: "rgba(248, 250, 252, 0.8)",
+              backdropFilter: "blur(4px)",
             }}
           >
             {status === "loading" && "Loading STL…"}
             {status === "error" && (error || "Error loading model")}
-            {(status === "idle" || (!src && !stlBuffer && !uploadedFile)) && showUpload && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ marginBottom: 16 }}>
-                  <button
-                    onClick={handleUploadClick}
-                    style={{
-                      padding: "12px 24px",
-                      background: "rgba(255,255,255,0.1)",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      borderRadius: 8,
-                      color: "#e7e9ef",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      fontWeight: 500,
-                    }}
-                  >
-                    📁 Upload STL File
-                  </button>
+            {(status === "idle" || (!src && !stlBuffer && !uploadedFile)) &&
+              showUpload && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <button
+                      onClick={handleUploadClick}
+                      style={{
+                        padding: "12px 24px",
+                        background: "rgba(0, 212, 255, 0.1)",
+                        border: "1px solid var(--border-primary)",
+                        borderRadius: 12,
+                        color: "var(--accent-primary)",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        fontWeight: 500,
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(0, 212, 255, 0.2)";
+                        e.currentTarget.style.boxShadow = "var(--shadow-glow)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(0, 212, 255, 0.1)";
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                    >
+                      📁 Upload STL File
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    Or provide a URL via the src prop
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  Or provide a URL via the src prop
-                </div>
-              </div>
-            )}
+              )}
           </div>
         )}
+
         {status === "ready" && uploadedFile && (
-          <div style={{ position: "absolute", top: 12, right: 12 }}>
+          <div style={{ position: "absolute", top: 16, right: 16 }}>
             <button
               onClick={clearUpload}
               style={{
-                padding: "4px 8px",
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: 4,
-                color: "#e7e9ef",
+                padding: "6px 12px",
+                background: "rgba(220, 38, 38, 0.1)",
+                border: "1px solid rgba(220, 38, 38, 0.3)",
+                borderRadius: 8,
+                color: "#ef4444",
                 cursor: "pointer",
                 fontSize: 12,
+                fontWeight: 500,
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(220, 38, 38, 0.2)";
+                e.currentTarget.style.boxShadow = "0 0 10px rgba(220, 38, 38, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(220, 38, 38, 0.1)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
               ✕ Clear
             </button>
           </div>
         )}
+
         <div style={badgeStyle}>Orbit: drag • Zoom: wheel</div>
       </div>
+
       <input
         ref={fileInputRef}
         type="file"

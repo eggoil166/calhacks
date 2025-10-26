@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Sparkles, Mic, Square } from 'lucide-react';
 
 // Minimal Web Speech typings (avoid 'any' while not depending on DOM lib types)
@@ -115,52 +116,105 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-3xl">
-      <div className="bg-white rounded-xl shadow-lg p-6 space-y-4">
-        <div className="flex items-center gap-2 text-gray-700 font-medium">
-          <Sparkles className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg">Describe your 3D part</h2>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      className="w-full max-w-4xl mx-auto"
+    >
+      <form onSubmit={handleSubmit} className="w-full">
+        <div className="tech-glass rounded-3xl shadow-2xl p-8 space-y-6 tech-border">
+          <div className="flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+            <div 
+              className="h-10 w-10 rounded-xl flex items-center justify-center tech-glow animate-pulse-glow"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                boxShadow: 'var(--shadow-glow)'
+              }}
+            >
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold">Describe your 3D part</h2>
+          </div>
 
-        <textarea
-          id="prompt-textarea"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Example: L-bracket 80x80x5 mm, two 6 mm holes every 20 mm"
-          className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-          disabled={isLoading}
-        />
-
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={startStopRecording}
-            disabled={isLoading}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${isRecording ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}`}
-          >
-            {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            {isRecording ? 'Stop Recording' : 'Speak (Speech to Text)'}
-          </button>
-
-          <button
-            type="submit"
-            disabled={!prompt.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                Generate CAD Model
-              </>
+          <div className="relative">
+            <textarea
+              id="prompt-textarea"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Example: L-bracket 80x80x5 mm, two 6 mm holes every 20 mm"
+              className="w-full h-40 px-6 py-4 rounded-2xl resize-none text-lg transition-all duration-200 tech-border"
+              style={{
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-secondary)',
+                outline: 'none'
+              }}
+              disabled={isLoading}
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--accent-primary)';
+                e.target.style.boxShadow = 'var(--shadow-glow)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'var(--border-secondary)';
+                e.target.style.boxShadow = 'none';
+              }}
+            />
+            {isRecording && (
+              <div className="absolute top-4 right-4 flex items-center gap-2" style={{ color: '#ef4444' }}>
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-sm font-medium">Recording...</span>
+              </div>
             )}
-          </button>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <motion.button
+              type="button"
+              onClick={startStopRecording}
+              disabled={isLoading}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl border text-sm font-semibold transition-all duration-200 ${
+                isRecording ? 'tech-glow' : 'tech-border'
+              }`}
+              style={{
+                background: isRecording ? 'rgba(220, 38, 38, 0.1)' : 'var(--bg-card)',
+                color: isRecording ? '#ef4444' : 'var(--text-secondary)',
+                border: isRecording ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid var(--border-secondary)'
+              }}
+            >
+              {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isRecording ? 'Stop Recording' : 'Speak (Speech to Text)'}
+            </motion.button>
+
+            <motion.button
+              type="submit"
+              disabled={!prompt.trim() || isLoading}
+              whileHover={{ scale: isLoading ? 1 : 1.02 }}
+              whileTap={{ scale: isLoading ? 1 : 0.98 }}
+              className="font-semibold py-4 px-8 rounded-xl transition-all duration-200 flex items-center justify-center gap-3 tech-glow disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                color: 'var(--text-primary)',
+                boxShadow: 'var(--shadow-glow)'
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Generate CAD Model
+                </>
+              )}
+            </motion.button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </motion.div>
   );
 }

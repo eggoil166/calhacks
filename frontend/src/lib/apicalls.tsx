@@ -1,4 +1,4 @@
-export async function callClaudeFlash(requestText: string, contextText: string): Promise<{glbBuffer: ArrayBuffer, fileName: string}> {
+export async function callClaudeFlash(requestText: string, contextText: string): Promise<{stlBuffer: ArrayBuffer, fileName: string}> {
   const res = await fetch('http://localhost:8080/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -24,7 +24,7 @@ export async function callClaudeFlash(requestText: string, contextText: string):
     const fileName = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'model.stl';
     
     return {
-      glbBuffer: arrayBuffer,
+      stlBuffer: arrayBuffer,
       fileName: fileName
     };
   } else {
