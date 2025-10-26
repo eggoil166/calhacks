@@ -88,7 +88,16 @@ export function Home() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="container mx-auto px-4 py-8 space-y-8">
         <header className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900">AR CAD</h1>
+          <div className="flex items-center justify-center gap-4">
+            <h1 className="text-4xl font-bold text-gray-900">AR CAD</h1>
+            <a
+              href="/xr-viewer.html"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"
+            >
+              <Glasses className="w-5 h-5" />
+              XR Viewer
+            </a>
+          </div>
           <p className="text-gray-600">Describe any 3D part and edit in real space</p>
         </header>
 

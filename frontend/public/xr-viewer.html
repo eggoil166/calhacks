@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XR Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #000;
+    }
+    #app {
+      width: 100vw;
+      height: 100vh;
+    }
+    #buttons {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+    }
+    #buttons button {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #buttons button:hover {
+      background: rgba(255, 255, 255, 1);
+    }
+    #status {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #1f2937;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="buttons">
+    <button onclick="window.location.href='/'">← Home</button>
+  </div>
+  <div id="status">Initializing...</div>
+  
+  <script type="module" src="/xr-viewer.js"></script>
+</body>
+</html>
+
