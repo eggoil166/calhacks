@@ -69,6 +69,10 @@ export function Home() {
       // Set the STL URL to load it in the viewer
       setStlUrl(url);
       
+      // Store STL data for STL Plane Viewer
+      sessionStorage.setItem('generatedSTLUrl', url);
+      sessionStorage.setItem('generatedSTLBuffer', JSON.stringify(Array.from(new Uint8Array(result.glbBuffer))));
+      
       // Continue with existing mock flow for parameters
       const cadResult = await nlpToCAD(prompt);
 

@@ -1,9 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import STLPlaneViewer from "../components/STLPlaneViewer";
 
 const STLPlanePage: React.FC = () => {
   const [stlUrl, setStlUrl] = useState<string>("");
   const [stlBuffer, setStlBuffer] = useState<ArrayBuffer | null>(null);
+
+  // Check for generated STL data on component mount
+  useEffect(() => {
+    const generatedUrl = sessionStorage.getItem('generatedSTLUrl');
+    const generatedBuffer = sessionStorage.getItem('generatedSTLBuffer');
+    
+    if (generatedUrl) {
+      setStlUrl(generatedUrl);
+      console.log('Loaded generated STL URL:', generatedUrl);
+    }
+    
+    if (generatedBuffer) {
+      try {
+        const bufferArray = JSON.parse(generatedBuffer);
+        const buffer = new Uint8Array(bufferArray).buffer;
+        setStlBuffer(buffer);
+        console.log('Loaded generated STL buffer:', buffer.byteLength, 'bytes');
+      } catch (error) {
+        console.error('Failed to parse generated STL buffer:', error);
+      }
+    }
+  }, []);
 
   const handleSTLLoaded = (geometry: THREE.BufferGeometry) => {
     console.log("STL loaded successfully:", geometry);
@@ -100,6 +122,9 @@ const STLPlanePage: React.FC = () => {
             onClick={() => {
               setStlUrl("");
               setStlBuffer(null);
+              // Clear session storage
+              sessionStorage.removeItem('generatedSTLUrl');
+              sessionStorage.removeItem('generatedSTLBuffer');
             }}
             style={{
               padding: "12px 24px",
@@ -132,7 +157,7 @@ const STLPlanePage: React.FC = () => {
           opacity: 0.7
         }}>
           <p>This viewer uses the same STL loading logic as the card viewer, but displays models on a 3D plane with grid reference.</p>
-          <p>Perfect for examining STL files in a 3D environment with full orbit controls.</p>
+          <p>Perfect for examining STL files in a 3D environment with full orbit controls. Generated models from the home page will automatically load here.</p>
         </div>
       </div>
     </div>

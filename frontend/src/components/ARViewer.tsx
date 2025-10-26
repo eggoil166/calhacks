@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
-type XRInputSourceAny = XRInputSource & { gamepad?: Gamepad };
 type XRSessionAny = XRSession & {
   requestHitTestSource?: (options: { space: XRReferenceSpace }) => Promise<XRHitTestSource>;
 };
@@ -18,18 +18,21 @@ interface ARViewerProps {
   onClose: () => void;
 }
 
-export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
-  const canvasRootRef = useRef<HTMLDivElement | null>(null);
-  const buttonRootRef = useRef<HTMLDivElement | null>(null);
-  const [status, setStatus] = useState('checking AR support…');
+const ARViewer: React.FC<ARViewerProps> = ({ stlUrl, onClose }) => {
+  const canvasRootRef = useRef<HTMLDivElement>(null);
+  const buttonRootRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState('Initializing...');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-
-    const buttonRoot = buttonRootRef.current;
+    if (!canvasRootRef.current || !buttonRootRef.current || !statusRef.current) return;
+    
+    setMounted(true);
     const canvasRoot = canvasRootRef.current;
+    const buttonRoot = buttonRootRef.current;
 
-    // --- three.js setup ---
+    // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 20);
 
@@ -37,22 +40,18 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
+    canvasRoot.appendChild(renderer.domElement);
 
-    // IMPORTANT: transparent clear so Quest passthrough shows
-    renderer.setClearColor(0x000000, 0); // alpha = 0
-    // (optional) ensure canvas itself isn't given an opaque bg
-    renderer.domElement.style.background = 'transparent';
-
-    canvasRoot?.appendChild(renderer.domElement);
-
-    // --- lighting ---
+    // Lighting to make the model readable in AR
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(0.5, 1, 0.25);
     scene.add(directionalLight);
 
-    // --- reticle for hit-test ---
+    // AR only - no VR helpers needed
+
+    // Reticle for hit-test results
     const reticle = new THREE.Mesh(
       new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0x4af2a1, transparent: true, opacity: 0.9 })
@@ -61,47 +60,20 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
     reticle.visible = false;
     scene.add(reticle);
 
-    // --- controller ---
+    // Controller input (Quest trigger)
     const controller = renderer.xr.getController(0);
     scene.add(controller);
+    const controllerGrip = renderer.xr.getControllerGrip(0);
+    const controllerModelFactory = new XRControllerModelFactory();
+    controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
+    scene.add(controllerGrip);
 
-    // --- state ---
     let isDragging = false;
     let placedObject: THREE.Group | null = null;
     let hitTestSource: XRHitTestSource | null = null;
     let localReferenceSpace: XRReferenceSpace | null = null;
     let viewerSpace: XRReferenceSpace | null = null;
 
-    // --- helpers ---
-    function createFallbackObject(): THREE.Group {
-      console.log('🔧 Creating fallback cube...');
-      
-      const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0xff0000, // RED for visibility
-        roughness: 0.6, 
-        metalness: 0.1 
-      });
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      
-      const group = new THREE.Group();
-      group.add(mesh);
-      
-      console.log('✅ Fallback cube created:', group);
-      console.log('📍 Cube position:', mesh.position);
-      console.log('👁️ Cube visible:', mesh.visible);
-      return group;
-    }
-
-    function ensurePlacedObject() {
-      if (placedObject) return;
-      placedObject = createFallbackObject();
-      scene.add(placedObject);
-    }
-
-    // STL loader + scale/center to ~25cm max dimension
     async function loadSTL(url: string) {
       console.log('🔧 Loading STL from URL:', url);
       
@@ -150,6 +122,27 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       });
     }
 
+    function createFallbackObject(): THREE.Group {
+      console.log('🔧 Creating fallback cube...');
+      
+      const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xff0000, // RED for visibility
+        roughness: 0.6, 
+        metalness: 0.1 
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      const group = new THREE.Group();
+      group.add(mesh);
+      
+      console.log('✅ Fallback cube created:', group);
+      console.log('📍 Cube position:', mesh.position);
+      console.log('👁️ Cube visible:', mesh.visible);
+      return group;
+    }
 
     function setPlacedObjectPoseFromReticle() {
       if (!placedObject || !reticle.visible) return;
@@ -158,7 +151,13 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       placedObject.quaternion.slerp(targetQuat, 0.8);
     }
 
-    // --- controller events (Quest trigger) ---
+    function ensurePlacedObject() {
+      if (placedObject) return;
+      placedObject = createFallbackObject();
+      scene.add(placedObject);
+    }
+
+
     controller.addEventListener('selectstart', () => {
       isDragging = true;
       ensurePlacedObject();
@@ -169,65 +168,75 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
       isDragging = false;
     });
 
-    // --- UI buttons ---
+    // Reset button
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset Model';
-    Object.assign(resetBtn.style, {
-      padding: '10px 14px',
-      borderRadius: '10px',
-      border: '1px solid #e5e7eb',
-      background: 'white',
-      cursor: 'pointer',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto',
-    });
+    resetBtn.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    `;
     resetBtn.onclick = () => {
       if (placedObject) {
         scene.remove(placedObject);
         placedObject = null;
       }
     };
-    buttonRoot?.appendChild(resetBtn);
+    buttonRoot.appendChild(resetBtn);
 
+    // Close button
     const closeBtn = document.createElement('button');
     closeBtn.textContent = 'Close AR';
-    Object.assign(closeBtn.style, {
-      padding: '10px 14px',
-      borderRadius: '10px',
-      border: '1px solid #e5e7eb',
-      background: 'white',
-      cursor: 'pointer',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto',
-    });
-    closeBtn.onclick = () => onClose();
-    buttonRoot?.appendChild(closeBtn);
+    closeBtn.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      padding: 10px 20px;
+      background: rgba(255,100,100,0.2);
+      border: 1px solid rgba(255,100,100,0.3);
+      border-radius: 8px;
+      color: #ff6b6b;
+      cursor: pointer;
+      font-size: 14px;
+    `;
+    closeBtn.onclick = onClose;
+    buttonRoot.appendChild(closeBtn);
 
-    // --- AR only ---
-    async function setupAR() {
-      let arSupported = false;
-      if (navigator.xr?.isSessionSupported) {
+    // AR ONLY - Match main.js exactly
+    async function setupARButton() {
+      if (navigator.xr && navigator.xr.isSessionSupported) {
         try {
-          arSupported = await navigator.xr.isSessionSupported('immersive-ar');
-        } catch {
-          arSupported = false;
+          const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+          if (arSupported) {
+            const arButton = ARButton.createButton(renderer, {
+              requiredFeatures: ['hit-test'],
+              optionalFeatures: ['dom-overlay'],
+              domOverlay: { root: document.body }
+            });
+            buttonRoot.appendChild(arButton);
+            setStatus('Aim at floor. Trigger to place/drag.');
+          } else {
+            setStatus('AR not supported on this device');
+          }
+        } catch (e) {
+          console.error('AR setup failed:', e);
+          setStatus('AR setup failed');
         }
+      } else {
+        setStatus('WebXR not supported');
       }
-      if (!arSupported) {
-        setStatus('WebXR AR not supported on this device/browser.');
-        return;
-      }
-
-      const arButton = ARButton.createButton(renderer, {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay'],
-        domOverlay: { root: document.body },
-      });
-      buttonRoot?.appendChild(arButton);
-      setStatus('Tap AR button to start. Aim at a surface. Trigger = place/drag. Grip+stick = rotate/scale.');
     }
+    setupARButton();
 
-    setupAR();
-
-    // --- session lifecycle ---
     async function onSessionStart() {
       console.log('🎯 XR Session started');
       const session = renderer.xr.getSession() as XRSessionAny;
@@ -271,26 +280,20 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
         ensurePlacedObject();
       }
 
-      setStatus('Move controller to aim. Trigger=place/drag, Grip+stick=rotate/scale.');
-
-      // reference spaces + hit test
+      console.log('🎯 Setting up AR session');
+      setStatus('Move controller to aim. Trigger to place or drag.');
+      
       try {
         localReferenceSpace = await session.requestReferenceSpace('local');
-      } catch {
-        localReferenceSpace = null;
-      }
-      
-      try {
         viewerSpace = await session.requestReferenceSpace('viewer');
-      } catch {
-        viewerSpace = null;
-      }
-      
-      if (viewerSpace) {
         hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace! }) ?? null;
+        console.log('✅ AR session setup complete');
+      } catch (e) {
+        console.error('❌ AR session setup failed:', e);
+        localReferenceSpace = null;
+        viewerSpace = null;
+        hitTestSource = null;
       }
-
-      session.addEventListener('end', onSessionEnd);
     }
 
     function onSessionEnd() {
@@ -303,61 +306,24 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
     renderer.xr.addEventListener('sessionstart', onSessionStart);
     renderer.xr.addEventListener('sessionend', onSessionEnd);
 
-    // --- Quest 2 control logic: Grip + Right Stick to rotate/scale ---
-    function updateOculusControls(session: XRSession, obj: THREE.Object3D, dt: number) {
-      const sources = session.inputSources as unknown as XRInputSourceAny[];
-      const withPad = sources.filter((s) => s.gamepad);
-      if (withPad.length === 0) return;
-
-      const src = withPad.find((s) => s.handedness === 'right') ?? withPad[0];
-      const gp = src.gamepad!;
-      const axes = gp.axes || [];
-
-      const stickX = (axes[2] ?? axes[0] ?? 0); // yaw
-      const stickY = (axes[3] ?? axes[1] ?? 0); // scale
-      const gripPressed = gp.buttons?.[1]?.pressed ?? false;
-
-      if (gripPressed) {
-        const rotSpeed = Math.PI; // rad/s
-        obj.rotateY(-stickX * rotSpeed * dt);
-
-        const scaleSpeed = 1.6;
-        const current = obj.scale.x;
-        const next = THREE.MathUtils.clamp(current * (1 + stickY * scaleSpeed * dt), 0.02, 10);
-        obj.scale.setScalar(next);
-      }
-    }
-
-    // --- render loop ---
-    let lastTs = 0;
-    const render = (timestamp: number, frame?: XRFrameAny) => {
+    const render = (_timestamp: number, frame?: XRFrameAny) => {
       if (!mounted) return;
-      const dt = lastTs ? (timestamp - lastTs) / 1000 : 0.016;
-      lastTs = timestamp;
-
-      // Debug: Log render calls occasionally
-      if (Math.floor(timestamp / 1000) % 5 === 0 && Math.floor(timestamp) % 1000 < 50) {
-        console.log('🎬 Render called - timestamp:', timestamp, 'frame:', !!frame);
-      }
 
       if (frame && hitTestSource && localReferenceSpace) {
-        const hits = frame.getHitTestResults?.(hitTestSource) ?? [];
-        if (hits.length > 0) {
-          const hit = hits[0];
+        const hitTestResults = frame.getHitTestResults?.(hitTestSource) ?? [];
+        if (hitTestResults.length > 0) {
+          const hit = hitTestResults[0];
           const pose = hit.getPose(localReferenceSpace);
           if (pose) {
             reticle.visible = true;
             reticle.matrix.fromArray(pose.transform.matrix);
-            if (isDragging) setPlacedObjectPoseFromReticle();
+            if (isDragging) {
+              setPlacedObjectPoseFromReticle();
+            }
           }
         } else {
           reticle.visible = false;
         }
-      }
-
-      const session = renderer.xr.getSession();
-      if (session && placedObject) {
-        updateOculusControls(session, placedObject, dt);
       }
 
       renderer.render(scene, camera);
@@ -365,69 +331,72 @@ export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
 
     renderer.setAnimationLoop(render);
 
-    // --- resize ---
-    const onResize = () => {
+    const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     };
-    window.addEventListener('resize', onResize);
 
-    // --- cleanup ---
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup
     return () => {
-      mounted = false;
-      try { 
-        renderer.setAnimationLoop(null); 
-      } catch {
-        // Ignore cleanup errors
-      }
-      window.removeEventListener('resize', onResize);
-      renderer.xr.removeEventListener('sessionstart', onSessionStart);
-      renderer.xr.removeEventListener('sessionend', onSessionEnd);
-
-      if (buttonRoot) buttonRoot.innerHTML = '';
-      if (canvasRoot && renderer.domElement.parentElement === canvasRoot) {
-        canvasRoot.removeChild(renderer.domElement);
-      }
-
-      reticle.geometry.dispose();
-      (reticle.material as THREE.Material).dispose();
+      window.removeEventListener('resize', handleResize);
+      renderer.setAnimationLoop(null);
       renderer.dispose();
+      if (renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      }
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((mat) => mat.dispose());
+            } else {
+              obj.material.dispose();
+            }
+          }
+        }
+      });
     };
-  }, [stlUrl, onClose]);
+  }, [stlUrl, onClose, mounted]);
+
+  if (!mounted) {
+    return <div>Loading AR Viewer...</div>;
+  }
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      width: '100vw', 
+      height: '100vh', 
+      zIndex: 1000,
+      background: 'black'
+    }}>
       <div ref={canvasRootRef} style={{ width: '100%', height: '100%' }} />
-      <div
+      <div ref={buttonRootRef} />
+      <div 
+        ref={statusRef}
         style={{
-          position: 'absolute',
-          top: 12,
-          left: 12,
-          padding: '8px 12px',
-          background: 'rgba(255,255,255,0.9)',
-          border: '1px solid #e5e7eb',
-          borderRadius: 12,
-          fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto',
-          fontSize: 14,
-          maxWidth: 360,
-          lineHeight: 1.3,
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          zIndex: 1001
         }}
       >
         {status}
       </div>
-      <div
-        ref={buttonRootRef}
-        style={{
-          position: 'absolute',
-          bottom: 12,
-          left: 12,
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      />
     </div>
   );
-}
+};
+
+export { ARViewer };
