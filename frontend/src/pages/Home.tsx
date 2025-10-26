@@ -3,7 +3,6 @@ import { Download, Eye, AlertCircle, Glasses, Box } from 'lucide-react';
 import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
 import ModelViewer from '../components/ModelViewer';
-import { ARViewer } from '../components/ARViewer';
 import { nlpToCAD, cadToMesh, xcallClaudeFlash, textToSpeech } from '../lib/api';
 import { callClaudeFlash } from '../lib/apicalls';
 import { useDebounce } from '../hooks/useDebounce';
@@ -12,8 +11,6 @@ import type { CADParameter } from '../lib/types';
 export function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [showAR, setShowAR] = useState(false);
-  // removed auto-AR preference; AR only opens when user clicks
   const [error, setError] = useState<string | null>(null);
 
   const [modelId, setModelId] = useState<string | null>(null);
@@ -125,7 +122,7 @@ export function Home() {
   }, [modelId, debouncedParams, stlUrl]);
 
   const handleSeeInAR = async () => {
-    setShowAR(true);
+    window.location.href = '/vanilla-xr';
   };
 
   return (
@@ -134,13 +131,13 @@ export function Home() {
         <header className="text-center space-y-2">
           <div className="flex items-center justify-center gap-4">
             <h1 className="text-4xl font-bold text-gray-900">AR CAD</h1>
-            <button
-              onClick={() => setShowAR(true)}
+            <a
+              href="/vanilla-xr"
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"
             >
               <Glasses className="w-5 h-5" />
-              XR Viewer
-            </button>
+              Vanilla XR
+            </a>
             <a
               href="/stl-plane"
               className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"
@@ -217,9 +214,6 @@ export function Home() {
         </div>
       </div>
 
-      {showAR && (
-        <ARViewer stlUrl={stlUrl || ''} onClose={() => setShowAR(false)} />
-      )}
     </div>
   );
 }
