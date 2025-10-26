@@ -57,7 +57,7 @@ if (SpeechRecognition) {
       (async () => {
         try {
           // Call the LLM API with the transcribed text
-          const response = await fetch('http://localhost:5000/api/generate_scad', {
+          const response = await fetch('http://127.0.0.1:5000/api/generate_scad', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: finalText })
@@ -73,7 +73,7 @@ if (SpeechRecognition) {
           
           // If there's a description, generate audio
           if (data.description && data.description.trim()) {
-            const audioResponse = await fetch('http://localhost:5000/api/text-to-speech', {
+            const audioResponse = await fetch('http://127.0.0.1:5000/api/text-to-speech', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ text: data.description })

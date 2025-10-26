@@ -112,13 +112,13 @@ export function Home() {
         <header className="text-center space-y-2">
           <div className="flex items-center justify-center gap-4">
             <h1 className="text-4xl font-bold text-gray-900">AR CAD</h1>
-            <a
-              href="/xr-viewer.html"
+            <button
+              onClick={() => setShowAR(true)}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"
             >
               <Glasses className="w-5 h-5" />
               XR Viewer
-            </a>
+            </button>
             <a
               href="/stl-plane"
               className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"

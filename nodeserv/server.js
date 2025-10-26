@@ -23,7 +23,7 @@ app.use((req, res, next) => {
   }
 });
 
-const api_dir = "http://localhost:5000";
+const api_dir = "http://127.0.0.1:5000";
 const tmp_dir = path.join(__dirname, 'exports');
 await fs.ensureDir(tmp_dir);
 

@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export async function xcallClaudeFlash(payload: string): Promise<{scad_code: string, description: string}> {
   console.log("payload", payload)
-  const response = await fetch(`http://localhost:5000/api/generate_scad`, {
+  const response = await fetch(`http://127.0.0.1:5000/api/generate_scad`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt: payload })
@@ -20,12 +20,12 @@ export async function xcallClaudeFlash(payload: string): Promise<{scad_code: str
 }
 
 export async function textToSpeech(text: string): Promise<Blob> {
-  const response = await fetch(`http://localhost:5000/api/text-to-speech`, {
+  const response = await fetch(`http://127.0.0.1:5000/api/text-to-speech`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: text })
   });
-  
+  console.log(response);
   if (!response.ok) {
     throw new Error(`Text-to-speech failed: ${response.statusText}`);
   }
