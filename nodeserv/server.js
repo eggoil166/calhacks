@@ -82,6 +82,41 @@ async function compileSCAD(scadCode, format = "stl") {
   }
 }
 
+app.post("/edit", async (req, res) => {
+  try {
+    const { edit_request, historical_text, current_scad } = req.body;
+    const geomResp = await axios.post(`${api_dir}/api/edit_scad`, { 'edit_request': edit_request, 'historical_text': historical_text, 'current_scad': current_scad });
+    const ret = geomResp.data;
+    let scadCode = ret.scad_code || ret;
+    if (typeof scadCode === 'string' && scadCode.includes('module ')) {
+      // Find the first occurrence of 'module ' and extract everything from there
+      const moduleIndex = scadCode.indexOf('module ');
+      if (moduleIndex !== -1) {
+        scadCode = scadCode.substring(moduleIndex);
+      }
+    }
+    
+    console.log("Received SCAD code:", scadCode);
+
+    if (!scadCode) {
+      return res.status(400).json({ error: "No SCAD code received from backend" });
+    }
+
+    const binary = await compileSCAD(scadCode, format);
+
+    res.setHeader(
+      "Content-Type",
+      format === "stl" ? "application/sla" : "application/octet-stream"
+    );
+    res.send(Buffer.from(binary));
+  } catch (err) {
+    console.error("Error in /generate:", err);
+    // Ensure we always return a proper error message
+    const errorMessage = err.message || "Unknown server error";
+    res.status(500).json({ error: errorMessage });
+  }
+})
+
 app.post("/generate", async (req, res) => {
   try {
     const { prompt, format = "stl" } = req.body;

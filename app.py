@@ -99,7 +99,7 @@ def edit_scad():
     code_blocks = [block.text for block in code if hasattr(block, "text")]
     joined_code = "\n".join(code_blocks)
     clean_code = re.sub(r"```[a-zA-Z]*\n?|```", "", joined_code).strip()
-    return jsonify({"scad_code": clean_code})
+    return jsonify({"scad_code": clean_code, "description": description})
 
 @app.route("/api/test", methods=["GET", "POST"])
 def test():
