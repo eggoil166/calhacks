@@ -23,9 +23,11 @@ type SRConstructor = new () => WebSpeechRecognition;
 interface PromptInputProps {
   onGenerate: (prompt: string) => void;
   isLoading: boolean;
+  externalPrompt?: string;
+  onPromptChange?: (prompt: string) => void;
 }
 
-export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
+export function PromptInput({ onGenerate, isLoading, externalPrompt, onPromptChange }: PromptInputProps) {
   const [prompt, setPrompt] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<WebSpeechRecognition | null>(null);
@@ -38,6 +40,21 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
     e.preventDefault();
     if (prompt.trim() && !isLoading) {
       onGenerate(prompt.trim());
+    }
+  };
+
+  // Handle external prompt changes
+  useEffect(() => {
+    if (externalPrompt !== undefined && externalPrompt !== prompt) {
+      setPrompt(externalPrompt);
+    }
+  }, [externalPrompt, prompt]);
+
+  // Handle prompt changes
+  const handlePromptChange = (value: string) => {
+    setPrompt(value);
+    if (onPromptChange) {
+      onPromptChange(value);
     }
   };
 
@@ -141,7 +158,7 @@ export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
             <textarea
               id="prompt-textarea"
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => handlePromptChange(e.target.value)}
               placeholder="Example: L-bracket 80x80x5 mm, two 6 mm holes every 20 mm"
               className="w-full h-40 px-6 py-4 rounded-2xl resize-none text-lg transition-all duration-200 tech-border"
               style={{

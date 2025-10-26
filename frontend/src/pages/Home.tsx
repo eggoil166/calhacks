@@ -4,8 +4,8 @@ import { Download, Eye, AlertCircle, Glasses, Box, Sparkles } from 'lucide-react
 import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
 import ModelViewer from '../components/ModelViewer';
-import { SpeechLoadingOverlay } from '../components/SpeechLoadingOverlay';
-import { nlpToCAD, cadToMesh, xcallClaudeFlash, textToSpeech } from '../lib/api';
+import { VoiceOrb } from '../components/VoiceOrb';
+import { nlpToCAD, cadToMesh, xcallClaudeFlash } from '../lib/api';
 import { callClaudeFlash } from '../lib/apicalls';
 import { useDebounce } from '../hooks/useDebounce';
 import type { CADParameter } from '../lib/types';
@@ -14,7 +14,6 @@ export function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const [modelId, setModelId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -26,31 +25,6 @@ export function Home() {
 
   const debouncedParams = useDebounce(paramValues, 400);
 
-  const playAudio = async (text: string) => {
-    try {
-      console.log('Generating audio for:', text);
-      setIsPlayingAudio(true);
-      const audioBlob = await textToSpeech(text);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = () => {
-        setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      await audio.play();
-    } catch (err) {
-      console.error('Failed to play audio:', err);
-      setIsPlayingAudio(false);
-      // Don't block the UI if audio fails
-    }
-  };
 
   const handleGenerate = async (prompt: string) => {
     setError(null);
@@ -63,10 +37,7 @@ export function Home() {
       // If there's a description from the LLM, generate and play audio
       if (llmResponse.description && llmResponse.description.trim()) {
         console.log('LLM returned description:', llmResponse.description);
-        // Play audio in the background (don't wait for it)
-        playAudio(llmResponse.description).catch(err => 
-          console.error('Audio playback failed:', err)
-        );
+        // Audio will be handled by VoiceOrb when using voice input
       }
       
       // ALSO call the Claude Flash endpoint to get GLB file
@@ -105,6 +76,17 @@ export function Home() {
       setIsGenerating(false);
     }
   };
+
+  const [promptText, setPromptText] = useState('');
+
+  const handleVoiceTranscript = useCallback((transcript: string) => {
+    // Set the transcript in the prompt input
+    setPromptText(transcript);
+  }, []);
+
+  const handlePromptChange = useCallback((text: string) => {
+    setPromptText(text);
+  }, []);
 
   const handleRegenerate = useCallback(async () => {
     if (!modelId) return;
@@ -172,13 +154,6 @@ export function Home() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-      {/* Speech Loading Overlay */}
-      <SpeechLoadingOverlay 
-        isVisible={isPlayingAudio} 
-        text={isGenerating ? "Generating..." : "Vision Forge"} 
-        statusText={isPlayingAudio ? "Playing audio..." : "Loading Vision Forge..."}
-      />
-      
       {/* Tech Background Effects */}
       <div className="pointer-events-none fixed inset-0">
         {/* Main glow effect */}
@@ -395,7 +370,24 @@ export function Home() {
           >
             {/* Section tech lines */}
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-var(--accent-primary) to-transparent opacity-20" />
-            <PromptInput onGenerate={handleGenerate} isLoading={isGenerating} />
+            <PromptInput 
+              onGenerate={handleGenerate} 
+              isLoading={isGenerating}
+              externalPrompt={promptText}
+              onPromptChange={handlePromptChange}
+            />
+          </motion.div>
+
+          {/* Voice Orb */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="mb-8 flex justify-center"
+          >
+            <VoiceOrb
+              onTranscript={handleVoiceTranscript}
+            />
           </motion.div>
 
           {/* Parameters Panel */}
@@ -429,8 +421,9 @@ export function Home() {
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-var(--accent-primary) to-transparent opacity-20" />
             <ModelViewer 
               src={stlUrl} 
-              title={stlUrl ? "Generated STL Model" : "Upload STL File"} 
+              title={stlUrl ? "" : "Upload STL File"} 
               showUpload={!stlUrl}
+              hideCard={!!stlUrl}
             />
           </motion.div>
 

@@ -18,6 +18,8 @@ type Props = {
   bg?: string;
   /** Show upload button when no src provided */
   showUpload?: boolean;
+  /** Hide card styling (no borders, background, title) */
+  hideCard?: boolean;
 };
 
 const STLCard: React.FC<Props> = ({
@@ -28,6 +30,7 @@ const STLCard: React.FC<Props> = ({
   color = "#c9d2ff",
   bg = "#0b0e14",
   showUpload = true,
+  hideCard = false,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>();
@@ -43,7 +46,18 @@ const STLCard: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dark tech card styles
-  const cardStyle: React.CSSProperties = {
+  const cardStyle: React.CSSProperties = hideCard ? {
+    background: "transparent",
+    border: "none",
+    borderRadius: 0,
+    boxShadow: "none",
+    color: "var(--text-primary)",
+    overflow: "hidden",
+    maxWidth: "none",
+    width: "100%",
+    margin: 0,
+    padding: 0,
+  } : {
     borderRadius: 24,
     boxShadow: "var(--shadow-card)",
     background: "var(--bg-glass)",
@@ -92,6 +106,14 @@ const STLCard: React.FC<Props> = ({
     scene.background = null;
     sceneRef.current = scene;
 
+    // Add visible grid background when hideCard is true
+    if (hideCard) {
+      const gridHelper = new THREE.GridHelper(1000, 30, 0x00d4ff, 0x00d4ff);
+      gridHelper.material.opacity = 0.4;
+      gridHelper.material.transparent = true;
+      scene.add(gridHelper);
+    }
+
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -113,8 +135,10 @@ const STLCard: React.FC<Props> = ({
     dir.castShadow = true;
     scene.add(hemi, dir);
 
-    // (Optional) soft ground shadow catcher — comment out if unwanted
-    const groundMat = new THREE.ShadowMaterial({ opacity: 0.25 });
+    // Ground shadow catcher - more visible when hideCard is true
+    const groundMat = new THREE.ShadowMaterial({ 
+      opacity: hideCard ? 0.4 : 0.25 
+    });
     const ground = new THREE.Mesh(new THREE.CircleGeometry(2.5, 64), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.01;
@@ -174,7 +198,7 @@ const STLCard: React.FC<Props> = ({
         }
       });
     };
-  }, [height, bg]);
+  }, [height, bg, hideCard]);
 
   // Fit object to view: centers by box center and fits both width & height
   const frameObject = (object: THREE.Object3D) => {
@@ -326,14 +350,16 @@ const STLCard: React.FC<Props> = ({
 
   return (
     <div style={cardStyle}>
-      <div style={headerStyle}>
-        {title}
-        {uploadedFile && (
-          <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
-            ({uploadedFile.name})
-          </span>
-        )}
-      </div>
+      {!hideCard && (
+        <div style={headerStyle}>
+          {title}
+          {uploadedFile && (
+            <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
+              ({uploadedFile.name})
+            </span>
+          )}
+        </div>
+      )}
 
       <div ref={mountRef} style={canvasWrapStyle}>
         {status !== "ready" && (
@@ -381,7 +407,7 @@ const STLCard: React.FC<Props> = ({
                     </button>
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.7 }}>
-                    Or provide a URL via the src prop
+                    Upload or Generate a model above
                   </div>
                 </div>
               )}
@@ -417,7 +443,7 @@ const STLCard: React.FC<Props> = ({
           </div>
         )}
 
-        <div style={badgeStyle}>Orbit: drag • Zoom: wheel</div>
+        {!hideCard && <div style={badgeStyle}>Orbit: drag • Zoom: wheel</div>}
       </div>
 
       <input

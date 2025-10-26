@@ -108,7 +108,7 @@ export async function cadToMesh(modelId: string, parameters: Record<string, numb
   const mockResponse: CADToMeshResponse = {
     glbUrl: "https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb",
     usdzUrl: "https://modelviewer.dev/shared-assets/models/Astronaut.usdz",
-    stlUrl: "https://example-cdn.com/parts/mock.stl",
+    stlUrl: "",
     meta: {
       bbox: [0, 0, 0, 0.08, 0.08, 0.005],
       volume_mm3: 123456,
