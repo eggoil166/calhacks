@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three-stdlib';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { X } from 'lucide-react';
 
 interface ARViewerProps {
-  glbUrl: string;
+  stlUrl: string;
   onClose: () => void;
 }
 
 // Fullscreen AR viewer using WebXR hit-test and controller drag
-export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
+export function ARViewer({ stlUrl, onClose }: ARViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Initializing AR...');
@@ -37,15 +37,36 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
     };
 
     const loadModel = async (url: string) => {
-      const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(url);
-      const model = gltf.scene;
+      const loader = new STLLoader();
+      const geometry = await loader.loadAsync(url);
+      
+      // Create material
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x3b82f6,
+        roughness: 0.6,
+        metalness: 0.1
+      });
+      
+      // Create mesh
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      const model = new THREE.Group();
+      model.add(mesh);
+      
+      // Auto-scale the model
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z);
       const target = 0.15; // ~15 cm target size
       const scale = maxDim > 0 ? target / maxDim : 1;
       model.scale.setScalar(scale);
+      
+      // Center the model
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      
       return model;
     };
 
@@ -127,7 +148,7 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
 
         // Load astronaut or provided GLB
         try {
-          const url = glbUrl || 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
+          const url = stlUrl || 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
           setStatus('Loading model...');
           const model = await loadModel(url);
           ensurePlacedRoot();
@@ -196,7 +217,7 @@ export function ARViewer({ glbUrl, onClose }: ARViewerProps) {
         renderer.dispose();
       }
     };
-  }, [glbUrl, onClose]);
+  }, [stlUrl, onClose]);
 
   return (
     <div ref={containerRef} className="fixed inset-0 w-screen h-screen bg-black z-50">

@@ -8,26 +8,29 @@ type Props = {
   src?: string;
   /** STL file buffer for direct upload */
   stlBuffer?: ArrayBuffer;
-  /** Card title (optional) */
-  title?: string;
-  /** Fixed height of the viewport area (px). Default 360 */
+  /** Container width */
+  width?: number;
+  /** Container height */
   height?: number;
   /** Mesh color */
   color?: string;
-  /** Card background */
-  bg?: string;
+  /** Background color */
+  backgroundColor?: string;
   /** Show upload button when no src provided */
   showUpload?: boolean;
+  /** Callback when STL is loaded */
+  onSTLLoaded?: (geometry: THREE.BufferGeometry) => void;
 };
 
-const STLCard: React.FC<Props> = ({
+const STLPlaneViewer: React.FC<Props> = ({
   src,
   stlBuffer,
-  title = "Preview",
-  height = 360,
+  width = 800,
+  height = 600,
   color = "#c9d2ff",
-  bg = "#0b0e14",
+  backgroundColor = "#0b0e14",
   showUpload = true,
+  onSTLLoaded,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>();
@@ -42,37 +45,28 @@ const STLCard: React.FC<Props> = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Basic card styles
-  const cardStyle: React.CSSProperties = {
-    borderRadius: 16,
-    boxShadow:
-      "0 1px 2px rgba(0,0,0,0.2), 0 12px 32px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.06)",
-    background: "#11131a",
-    color: "#e7e9ef",
-    overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.08)",
+  // File upload handlers
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.name.toLowerCase().endsWith('.stl')) {
+      setUploadedFile(file);
+      setStatus("loading");
+    } else {
+      setError("Please select a valid STL file.");
+      setStatus("error");
+    }
   };
-  const headerStyle: React.CSSProperties = {
-    padding: "12px 16px",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
-    fontWeight: 600,
-    fontSize: 14,
-    letterSpacing: 0.25,
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
-  const canvasWrapStyle: React.CSSProperties = {
-    position: "relative",
-    height,
-    background: bg,
-  };
-  const badgeStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    padding: "4px 8px",
-    borderRadius: 999,
-    fontSize: 12,
-    background: "rgba(255,255,255,0.06)",
-    backdropFilter: "blur(6px)",
+
+  const clearUpload = () => {
+    setUploadedFile(null);
+    setStatus("idle");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   useEffect(() => {
@@ -80,17 +74,19 @@ const STLCard: React.FC<Props> = ({
 
     // Scene / Renderer
     const scene = new THREE.Scene();
-    scene.background = null;
+    scene.background = new THREE.Color(backgroundColor);
     sceneRef.current = scene;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height);
     rendererRef.current = renderer;
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
+    const camera = new THREE.PerspectiveCamera(50, width / height, 0.01, 1000);
+    camera.position.set(0, 0, 5);
     cameraRef.current = camera;
 
     // Lights
@@ -99,23 +95,34 @@ const STLCard: React.FC<Props> = ({
     dir.position.set(3, 6, 8);
     scene.add(hemi, dir);
 
-    // Ground "card" shadow catcher (soft)
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(2.5, 64),
-      new THREE.ShadowMaterial({ opacity: 0.25 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.01;
-    ground.receiveShadow = true;
-    // (Enable shadows)
+    // Ground plane (3D plane)
+    const planeGeometry = new THREE.PlaneGeometry(10, 10);
+    const planeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x333333,
+      roughness: 0.8,
+      metalness: 0.1,
+      side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    plane.position.y = -2; // Position below the model
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    // Grid helper for reference
+    const gridHelper = new THREE.GridHelper(10, 20, 0x444444, 0x222222);
+    gridHelper.position.y = -1.99; // Slightly above the plane
+    scene.add(gridHelper);
+
+    // Enable shadows
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     dir.castShadow = true;
-    // You can comment the next line to hide the ground
-    scene.add(ground);
 
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
     controlsRef.current = controls;
 
     // Mount
@@ -164,7 +171,7 @@ const STLCard: React.FC<Props> = ({
         }
       });
     };
-  }, [height, bg]);
+  }, [width, height, backgroundColor]);
 
   // Load STL whenever src, stlBuffer, or uploadedFile changes
   useEffect(() => {
@@ -219,7 +226,8 @@ const STLCard: React.FC<Props> = ({
         const mesh = new THREE.Mesh(geometry, material);
         mesh.name = "stl-root";
         mesh.castShadow = true;
-        mesh.receiveShadow = false;
+        mesh.receiveShadow = true;
+        mesh.position.y = 0; // Position on the plane
         scene.add(mesh);
 
         // Fit to view
@@ -230,7 +238,7 @@ const STLCard: React.FC<Props> = ({
         box.getCenter(center);
 
         const maxDim = Math.max(size.x, size.y, size.z);
-        const dist = maxDim * 1.8; // camera distance multiplier
+        const dist = maxDim * 2.5; // camera distance multiplier
         camera.position.set(dist, dist * 0.8, dist);
         camera.near = dist / 100;
         camera.far = dist * 100;
@@ -241,6 +249,12 @@ const STLCard: React.FC<Props> = ({
         controlsRef.current!.update();
 
         setStatus("ready");
+        
+        // Callback for loaded geometry
+        if (onSTLLoaded) {
+          onSTLLoaded(geometry);
+        }
+
       } catch (err) {
         console.error("STL load error:", err);
         setError("Failed to load STL. Check the file format and try again.");
@@ -249,104 +263,104 @@ const STLCard: React.FC<Props> = ({
     };
 
     loadSTL();
-  }, [src, stlBuffer, uploadedFile, color]);
-
-  // File upload handlers
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.name.toLowerCase().endsWith('.stl')) {
-      setUploadedFile(file);
-      setStatus("loading");
-    } else {
-      setError("Please select a valid STL file.");
-      setStatus("error");
-    }
-  };
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const clearUpload = () => {
-    setUploadedFile(null);
-    setStatus("idle");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  }, [src, stlBuffer, uploadedFile, color, onSTLLoaded]);
 
   return (
-    <div style={cardStyle}>
-      <div style={headerStyle}>
-        {title}
-        {uploadedFile && (
-          <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
-            ({uploadedFile.name})
-          </span>
-        )}
-      </div>
-      <div ref={mountRef} style={canvasWrapStyle}>
-        {status !== "ready" && (
-          <div
+    <div style={{ position: "relative", width, height }}>
+      <div 
+        ref={mountRef} 
+        style={{ 
+          width: "100%", 
+          height: "100%", 
+          background: backgroundColor,
+          borderRadius: 8,
+          overflow: "hidden"
+        }}
+      />
+      
+      {/* Upload overlay */}
+      {status !== "ready" && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            color: "#cfd3e0",
+            fontSize: 14,
+            background: status === "error" ? "rgba(200,0,0,0.1)" : "rgba(0,0,0,0.3)",
+            borderRadius: 8,
+          }}
+        >
+          {status === "loading" && "Loading STL…"}
+          {status === "error" && (error || "Error loading model")}
+          {(status === "idle" || (!src && !stlBuffer && !uploadedFile)) && showUpload && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ marginBottom: 16 }}>
+                <button
+                  onClick={handleUploadClick}
+                  style={{
+                    padding: "16px 32px",
+                    background: "rgba(255,255,255,0.15)",
+                    border: "2px solid rgba(255,255,255,0.3)",
+                    borderRadius: 12,
+                    color: "#e7e9ef",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    fontWeight: 600,
+                    backdropFilter: "blur(10px)",
+                  }}
+                >
+                  📁 Upload STL File
+                </button>
+              </div>
+              <div style={{ fontSize: 14, opacity: 0.8 }}>
+                Upload an STL file to view on 3D plane
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Clear button when model is loaded */}
+      {status === "ready" && uploadedFile && (
+        <div style={{ position: "absolute", top: 12, right: 12 }}>
+          <button
+            onClick={clearUpload}
             style={{
-              position: "absolute",
-              inset: 0,
-              display: "grid",
-              placeItems: "center",
-              color: "#cfd3e0",
-              fontSize: 13,
-              background:
-                status === "error" ? "rgba(200,0,0,0.06)" : "transparent",
+              padding: "8px 16px",
+              background: "rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: 6,
+              color: "#e7e9ef",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 500,
+              backdropFilter: "blur(10px)",
             }}
           >
-            {status === "loading" && "Loading STL…"}
-            {status === "error" && (error || "Error loading model")}
-            {(status === "idle" || (!src && !stlBuffer && !uploadedFile)) && showUpload && (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ marginBottom: 16 }}>
-                  <button
-                    onClick={handleUploadClick}
-                    style={{
-                      padding: "12px 24px",
-                      background: "rgba(255,255,255,0.1)",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      borderRadius: 8,
-                      color: "#e7e9ef",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      fontWeight: 500,
-                    }}
-                  >
-                    📁 Upload STL File
-                  </button>
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  Or provide a URL via the src prop
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {status === "ready" && uploadedFile && (
-          <div style={{ position: "absolute", top: 12, right: 12 }}>
-            <button
-              onClick={clearUpload}
-              style={{
-                padding: "4px 8px",
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: 4,
-                color: "#e7e9ef",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
-            >
-              ✕ Clear
-            </button>
-          </div>
-        )}
-        <div style={badgeStyle}>Orbit: drag • Zoom: wheel</div>
-      </div>
+            ✕ Clear Model
+          </button>
+        </div>
+      )}
+      
+      {/* Instructions */}
+      {status === "ready" && (
+        <div style={{ 
+          position: "absolute", 
+          bottom: 12, 
+          left: 12, 
+          padding: "8px 12px",
+          background: "rgba(0,0,0,0.6)",
+          borderRadius: 6,
+          color: "#cfd3e0",
+          fontSize: 12,
+          backdropFilter: "blur(10px)",
+        }}>
+          Drag to orbit • Scroll to zoom • Right-drag to pan
+        </div>
+      )}
+      
       <input
         ref={fileInputRef}
         type="file"
@@ -358,4 +372,4 @@ const STLCard: React.FC<Props> = ({
   );
 };
 
-export default STLCard;
+export default STLPlaneViewer;

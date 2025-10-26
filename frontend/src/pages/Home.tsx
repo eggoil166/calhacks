@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Download, Eye, AlertCircle, Glasses } from 'lucide-react';
+import { Download, Eye, AlertCircle, Glasses, Box } from 'lucide-react';
 import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
-import { ModelViewer } from '../components/ModelViewer';
+import ModelViewer from '../components/ModelViewer';
 import { ARViewer } from '../components/ARViewer';
 import { nlpToCAD, cadToMesh } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
@@ -20,8 +20,6 @@ export function Home() {
   const [units, setUnits] = useState('mm');
   const [parameters, setParameters] = useState<CADParameter[]>([]);
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
-  const [glbUrl, setGlbUrl] = useState('');
-  const [usdzUrl, setUsdzUrl] = useState('');
   const [stlUrl, setStlUrl] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
 
@@ -64,8 +62,6 @@ export function Home() {
       try {
         const result = await cadToMesh(modelId, debouncedParams);
 
-        setGlbUrl(result.glbUrl);
-        setUsdzUrl(result.usdzUrl);
         setStlUrl(result.stlUrl);
         setWarnings(result.meta.warnings || []);
 
@@ -96,6 +92,13 @@ export function Home() {
             >
               <Glasses className="w-5 h-5" />
               XR Viewer
+            </a>
+            <a
+              href="/stl-plane"
+              className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md"
+            >
+              <Box className="w-5 h-5" />
+              STL Plane Viewer
             </a>
           </div>
           <p className="text-gray-600">Describe any 3D part and edit in real space</p>
@@ -138,36 +141,36 @@ export function Home() {
             />
           )}
 
-          {glbUrl && (
-            <>
-              <ModelViewer glbUrl={glbUrl} usdzUrl={usdzUrl} />
-              <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-4">
-                <button
-                  onClick={handleSeeInAR}
-                  disabled={!glbUrl || isRegenerating}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-lg"
-                >
-                  <Eye className="w-5 h-5" />
-                  See in AR
-                </button>
-                {stlUrl && (
-                  <a
-                    href={stlUrl}
-                    download
-                    className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-lg border border-gray-300"
-                  >
-                    <Download className="w-5 h-5" />
-                    Download STL
-                  </a>
-                )}
-              </div>
-            </>
+          <ModelViewer 
+            src={stlUrl} 
+            title={stlUrl ? "Generated STL Model" : "Upload STL File"} 
+            showUpload={!stlUrl}
+          />
+          {stlUrl && (
+            <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-4">
+              <button
+                onClick={handleSeeInAR}
+                disabled={!stlUrl || isRegenerating}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-lg"
+              >
+                <Eye className="w-5 h-5" />
+                See in AR
+              </button>
+              <a
+                href={stlUrl}
+                download
+                className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-lg border border-gray-300"
+              >
+                <Download className="w-5 h-5" />
+                Download STL
+              </a>
+            </div>
           )}
         </div>
       </div>
 
-      {showAR && glbUrl && (
-        <ARViewer glbUrl={glbUrl} onClose={() => setShowAR(false)} />
+      {showAR && stlUrl && (
+        <ARViewer stlUrl={stlUrl} onClose={() => setShowAR(false)} />
       )}
     </div>
   );

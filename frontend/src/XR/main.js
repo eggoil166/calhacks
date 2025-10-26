@@ -97,11 +97,21 @@ function stopSpeech() {
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 20);
 
+console.log('🎬 Scene created:', scene);
+console.log('📷 Camera created:', camera);
+console.log('📍 Camera position:', camera.position);
+console.log('👁️ Camera looking at:', camera.getWorldDirection(new THREE.Vector3()));
+
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 appRoot.appendChild(renderer.domElement);
+
+console.log('🎨 Renderer created and attached to DOM');
+console.log('📏 Renderer size:', window.innerWidth, 'x', window.innerHeight);
+console.log('🎯 App root element:', appRoot);
+console.log('🖼️ Canvas element:', renderer.domElement);
 
 // Lighting to make the model readable in AR
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -150,39 +160,85 @@ const gltfUrl = params.get('model');
 const stlUrl = params.get('stl'); // Support STL files via URL parameter
 const defaultGlb = 'https://modelviewer.dev/shared-assets/models/NeilArmstrong.glb';
 
-// Function to load STL file from URL or data
-async function loadSTLFromData(stlData) {
+// Real STL loader using STLLoader
+async function loadSTLFromData(arrayBuffer) {
+  console.log('🔧 Loading STL from data...');
+  
   return new Promise((resolve, reject) => {
     const loader = new STLLoader();
-    loader.parse(stlData, (geometry) => {
-      // Create material for STL
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0x3b82f6, 
-        roughness: 0.6, 
-        metalness: 0.1 
-      });
-      
-      // Create mesh from STL geometry
-      const mesh = new THREE.Mesh(geometry, material);
-      
-      // Scale model to a reasonable size (~25cm max dimension)
-      const box = new THREE.Box3().setFromObject(mesh);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const target = 0.25;
-      const scale = target / maxDim;
-      mesh.scale.setScalar(scale);
-      
-      // Enable shadows
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      
-      // Create group to match GLTF structure
-      const root = new THREE.Group();
-      root.add(mesh);
-      resolve(root);
-    }, reject);
+    
+    loader.load(
+      URL.createObjectURL(new Blob([arrayBuffer])),
+      (geometry) => {
+        console.log('✅ STL geometry loaded:', geometry);
+        
+        // Create material
+        const material = new THREE.MeshStandardMaterial({ 
+          color: 0x3b82f6, 
+          roughness: 0.6, 
+          metalness: 0.1 
+        });
+        
+        // Create mesh
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // Auto-scale the model to reasonable size
+        const box = new THREE.Box3().setFromObject(mesh);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const target = 0.25; // 25cm max dimension
+        const scale = target / maxDim;
+        mesh.scale.setScalar(scale);
+        
+        // Center the model
+        const center = box.getCenter(new THREE.Vector3());
+        mesh.position.sub(center);
+        
+        const root = new THREE.Group();
+        root.add(mesh);
+        
+        console.log('✅ STL model created:', root);
+        console.log('📏 Model scale:', scale);
+        console.log('📍 Model position:', mesh.position);
+        resolve(root);
+      },
+      undefined,
+      (error) => {
+        console.error('❌ STL loading failed:', error);
+        reject(error);
+      }
+    );
   });
+}
+
+// Simple STL loader - just create a cube directly
+function createSTLCube() {
+  console.log('🔧 Creating STL cube directly...');
+  
+  // Create a simple cube geometry - make it bigger and more visible
+  const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+  const material = new THREE.MeshStandardMaterial({ 
+    color: 0xff0000, // RED for visibility
+    roughness: 0.6, 
+    metalness: 0.1 
+  });
+  
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  
+  // Position the cube where it can be seen
+  mesh.position.set(0, 0.25, -1); // In front of camera
+  
+  const root = new THREE.Group();
+  root.add(mesh);
+  
+  console.log('✅ STL cube created:', root);
+  console.log('📍 Cube position:', mesh.position);
+  console.log('👁️ Cube visible:', mesh.visible);
+  return root;
 }
 
 async function loadModel(url) {
@@ -472,6 +528,7 @@ setupXRButtons();
 
 // Setup STL file upload
 const loadSTLBtn = document.getElementById('loadSTLBtn');
+const testSTLBtn = document.getElementById('testSTLBtn');
 const stlFileInput = document.getElementById('stlFileInput');
 
 if (loadSTLBtn && stlFileInput) {
@@ -483,28 +540,44 @@ if (loadSTLBtn && stlFileInput) {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('📁 Loading STL file:', file.name);
+    console.log('📁 Loading STL file:', file.name, 'Size:', file.size, 'bytes');
     statusEl.textContent = 'Loading STL file...';
 
     try {
+      // Load the actual STL file
       const arrayBuffer = await file.arrayBuffer();
+      console.log('📦 STL file array buffer size:', arrayBuffer.byteLength);
+      
       const model = await loadSTLFromData(arrayBuffer);
+      console.log('✅ STL model created:', model);
       
       // Replace current model
       if (placedObject) {
+        console.log('🔄 Replacing existing model in placedObject');
         // Remove existing children
         while (placedObject.children.length > 0) {
-          placedObject.remove(placedObject.children[0]);
+          const child = placedObject.children[0];
+          placedObject.remove(child);
+          console.log('🗑️ Removed child:', child.type);
         }
         placedObject.add(model);
+        placedObject.visible = true;
+        placedObject.position.set(0, 0, -1); // Position in front of camera
         console.log('✅ STL file loaded and added to scene');
+        console.log('📍 PlacedObject position:', placedObject.position);
+        console.log('👁️ PlacedObject visible:', placedObject.visible);
         statusEl.textContent = 'STL file loaded successfully!';
       } else {
+        console.log('🆕 Creating new placed object for STL');
         // Create new placed object
         placedObject = new THREE.Group();
         placedObject.add(model);
+        placedObject.visible = true;
+        placedObject.position.set(0, 0, -1); // Position in front of camera
         scene.add(placedObject);
         console.log('✅ STL file loaded and created new object');
+        console.log('📍 PlacedObject position:', placedObject.position);
+        console.log('👁️ PlacedObject visible:', placedObject.visible);
         statusEl.textContent = 'STL file loaded successfully!';
       }
       
@@ -513,12 +586,147 @@ if (loadSTLBtn && stlFileInput) {
       
     } catch (error) {
       console.error('❌ Failed to load STL file:', error);
-      statusEl.textContent = 'Failed to load STL file';
+      statusEl.textContent = 'Failed to load STL file: ' + error.message;
     }
   });
 }
 
+// Test STL loading with a simple cube
+if (testSTLBtn) {
+  testSTLBtn.addEventListener('click', () => {
+    console.log('🧪 Testing STL loading with simple cube...');
+    statusEl.textContent = 'Loading test cube...';
+    
+    try {
+      // Create a simple test STL cube using real STL geometry
+      const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0x00ff00, // GREEN for test
+        roughness: 0.6, 
+        metalness: 0.1 
+      });
+      
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      const root = new THREE.Group();
+      root.add(mesh);
+      
+      console.log('✅ Test STL model created:', root);
+      
+      // Replace current model
+      if (placedObject) {
+        console.log('🔄 Replacing existing model with test cube');
+        // Remove existing children
+        while (placedObject.children.length > 0) {
+          const child = placedObject.children[0];
+          placedObject.remove(child);
+          console.log('🗑️ Removed child:', child.type);
+        }
+        placedObject.add(root);
+        placedObject.visible = true;
+        placedObject.position.set(0, 0, -1); // Position in front of camera
+        console.log('✅ Test cube loaded and added to scene');
+        console.log('📍 PlacedObject position:', placedObject.position);
+        console.log('👁️ PlacedObject visible:', placedObject.visible);
+        statusEl.textContent = 'Test cube loaded successfully!';
+      } else {
+        console.log('🆕 Creating new placed object for test cube');
+        // Create new placed object
+        placedObject = new THREE.Group();
+        placedObject.add(root);
+        placedObject.visible = true;
+        placedObject.position.set(0, 0, -1); // Position in front of camera
+        scene.add(placedObject);
+        console.log('✅ Test cube loaded and created new object');
+        console.log('📍 PlacedObject position:', placedObject.position);
+        console.log('👁️ PlacedObject visible:', placedObject.visible);
+        statusEl.textContent = 'Test cube loaded successfully!';
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to load test cube:', error);
+      statusEl.textContent = 'Failed to load test cube: ' + error.message;
+    }
+  });
+}
+
+// Debug button
+const debugBtn = document.getElementById('debugBtn');
+if (debugBtn) {
+  debugBtn.addEventListener('click', () => {
+    console.log('🐛 Debug Scene Info:');
+    console.log('📍 Camera position:', camera.position);
+    console.log('👁️ Camera looking at:', camera.getWorldDirection(new THREE.Vector3()));
+    console.log('📦 Scene children:', scene.children.length);
+    console.log('🎯 PlacedObject:', placedObject);
+    if (placedObject) {
+      console.log('📍 PlacedObject position:', placedObject.position);
+      console.log('👁️ PlacedObject visible:', placedObject.visible);
+      console.log('👶 PlacedObject children:', placedObject.children.length);
+    }
+    console.log('🎨 Renderer info:', renderer.info);
+    console.log('🖥️ Renderer size:', renderer.getSize(new THREE.Vector2()));
+    console.log('🎬 Animation loop running:', renderer.getAnimationLoop() !== null);
+  });
+}
+
+// Create a test object immediately to verify rendering works
+function createTestObject() {
+  console.log('🧪 Creating immediate test object...');
+  
+  const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+  const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red, no lighting needed
+  const testCube = new THREE.Mesh(geometry, material);
+  
+  testCube.position.set(0, 0, -1); // In front of camera
+  scene.add(testCube);
+  
+  console.log('✅ Test cube added to scene at position:', testCube.position);
+  console.log('👁️ Test cube visible:', testCube.visible);
+  
+  return testCube;
+}
+
+// Create test object immediately
+const testObject = createTestObject();
+
+// Test render immediately
+console.log('🎬 Testing immediate render...');
+renderer.render(scene, camera);
+console.log('✅ Immediate render completed');
+
 renderer.setAnimationLoop(render);
+
+// Simple test button
+const simpleTestBtn = document.getElementById('simpleTestBtn');
+if (simpleTestBtn) {
+  simpleTestBtn.addEventListener('click', () => {
+    console.log('🔴 Simple test button clicked');
+    
+    // Create a bright red cube that should be impossible to miss
+    const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000,
+      wireframe: false
+    });
+    const cube = new THREE.Mesh(geometry, material);
+    
+    cube.position.set(0, 0, -2); // Further back so it's definitely visible
+    scene.add(cube);
+    
+    console.log('🔴 Bright red cube added at position:', cube.position);
+    console.log('🔴 Cube visible:', cube.visible);
+    console.log('🔴 Scene children count:', scene.children.length);
+    
+    // Force a render
+    renderer.render(scene, camera);
+    console.log('🔴 Forced render completed');
+    
+    statusEl.textContent = 'Red cube added! Check console for details.';
+  });
+}
 
 async function onSessionStart() {
   console.log('🎯 XR Session started');
@@ -602,6 +810,11 @@ let lastTs = 0;
 function render(timestamp, frame) {
   const dt = lastTs ? (timestamp - lastTs) / 1000 : 0.016;
   lastTs = timestamp;
+  
+  // Debug: Log render calls occasionally
+  if (Math.floor(timestamp / 1000) % 5 === 0 && Math.floor(timestamp) % 1000 < 50) {
+    console.log('🎬 Render called - timestamp:', timestamp, 'frame:', !!frame);
+  }
   if (useAR && frame && hitTestSource && localReferenceSpace) {
     const hitTestResults = frame.getHitTestResults(hitTestSource);
     if (hitTestResults.length > 0) {
