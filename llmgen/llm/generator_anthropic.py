@@ -22,14 +22,38 @@ def parse_geom(user_prompt: str) -> GeometryAssembly:
     )
     return response
 
-def gen_openscad(geomspec: GeometryAssembly) -> str:
+def gen_openscad(geomspec: GeometryAssembly) -> tuple:
     prompt = GEN_PROMPT.format(geometry_json=geomspec.model_dump_json(indent=2))
     response = client2.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=10000,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content
+    content = response.content
+    code_blocks = [block.text for block in content if hasattr(block, "text")]
+    full_text = "\n".join(code_blocks)
+    
+    # Extract description from the beginning of the response
+    description = ""
+    lines = full_text.split('\n')
+    description_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        # Check if this looks like code
+        if stripped.startswith('module ') or stripped.startswith('function ') or stripped.startswith('translate') or stripped.startswith('rotate') or stripped.startswith('cube') or stripped.startswith('cylinder') or stripped.startswith('sphere'):
+            break
+        # Not code yet, could be description
+        if stripped and not stripped.startswith('//'):
+            description_lines.append(stripped)
+    
+    description = ' '.join(description_lines[:3])  # Take first 3 lines max
+    
+    # Fallback description if none found
+    if not description or len(description) < 20:
+        description = "I've created an OpenSCAD model based on your specifications."
+    
+    return (content, description)
 
 def edit_existing_model(edit_request: str, historical_text: str, current_scad: str) -> GeometryAssembly:
     prompt = EDIT_PROMPT.format(

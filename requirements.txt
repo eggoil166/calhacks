@@ -1,2 +1,6 @@
 python-dotenv
 fish-audio-sdk
+flask
+flask-cors
+anthropic
+instructor

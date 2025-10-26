@@ -4,7 +4,7 @@ import { PromptInput } from '../components/PromptInput';
 import { ParamPanel } from '../components/ParamPanel';
 import { ModelViewer } from '../components/ModelViewer';
 import { ARViewer } from '../components/ARViewer';
-import { nlpToCAD, cadToMesh } from '../lib/api';
+import { nlpToCAD, cadToMesh, callClaudeFlash, textToSpeech } from '../lib/api';
 import { useDebounce } from '../hooks/useDebounce';
 import type { CADParameter } from '../lib/types';
 
@@ -27,11 +27,37 @@ export function Home() {
 
   const debouncedParams = useDebounce(paramValues, 400);
 
+  const playAudio = async (text: string) => {
+    try {
+      console.log('Generating audio for:', text);
+      const audioBlob = await textToSpeech(text);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play().catch(err => console.error('Error playing audio:', err));
+    } catch (err) {
+      console.error('Failed to play audio:', err);
+      // Don't block the UI if audio fails
+    }
+  };
+
   const handleGenerate = async (prompt: string) => {
     setError(null);
     setIsGenerating(true);
 
     try {
+      // Call the LLM API to generate SCAD and description
+      const llmResponse = await callClaudeFlash(prompt);
+      
+      // If there's a description from the LLM, generate and play audio
+      if (llmResponse.description && llmResponse.description.trim()) {
+        console.log('LLM returned description:', llmResponse.description);
+        // Play audio in the background (don't wait for it)
+        playAudio(llmResponse.description).catch(err => 
+          console.error('Audio playback failed:', err)
+        );
+      }
+      
+      // Continue with existing mock flow
       const result = await nlpToCAD(prompt);
 
       setModelId(result.modelId);

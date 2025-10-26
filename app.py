@@ -3,30 +3,85 @@ from llmgen.llm.generator_anthropic import parse_geom, gen_openscad, edit_existi
 from llmgen.utils.scadding import save_openscad
 
 import re
+import subprocess
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
+try:
+    from flask_cors import CORS
+    cors_available = True
+except ImportError:
+    cors_available = False
 import os
 import anthropic
 
 app = Flask(__name__)
 
+# Enable CORS if available
+if cors_available:
+    CORS(app)
+else:
+    # Manual CORS headers
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
 @app.route("/api/generate_scad", methods=["POST"])
 def generate_scad():
-    print("received request", request.json)
+    try:
+        print("received request", request.json)
+        data = request.json
+        if not data or 'prompt' not in data:
+            return jsonify({"error": "Missing 'prompt' in request"}), 400
+        user_prompt = data.get("prompt")
+        """if data.get("use_gemini"):
+            spec = parse_geom2(user_prompt)
+            code = gen_openscad2(spec)"""
+        #else:
+        spec = parse_geom(user_prompt)
+        code, description = gen_openscad(spec)  # Returns tuple
+        code_blocks = [block.text for block in code if hasattr(block, "text")]
+        joined_code = "\n".join(code_blocks)
+        clean_code = re.sub(r"```[a-zA-Z]*\n?|```", "", joined_code).strip()
+        return jsonify({"scad_code": clean_code, "description": description})
+    except Exception as e:
+        print(f"Error in generate_scad: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/text-to-speech", methods=["POST"])
+def text_to_speech():
     data = request.json
-    if not data or 'prompt' not in data:
-        return jsonify({"error": "Missing 'prompt' in request"}), 400
-    user_prompt = data.get("prompt")
-    """if data.get("use_gemini"):
-        spec = parse_geom2(user_prompt)
-        code = gen_openscad2(spec)"""
-    #else:
-    spec = parse_geom(user_prompt)
-    code = gen_openscad(spec)
-    code_blocks = [block.text for block in code if hasattr(block, "text")]
-    joined_code = "\n".join(code_blocks)
-    clean_code = re.sub(r"```[a-zA-Z]*\n?|```", "", joined_code).strip()
-    return jsonify({"scad_code": clean_code})
+    if not data or 'text' not in data:
+        return jsonify({"error": "Missing 'text' in request"}), 400
+    
+    text = data.get("text")
+    if not text or not text.strip():
+        return jsonify({"error": "Text is empty"}), 400
+    
+    try:
+        # Call transcribe.py with the text
+        result = subprocess.run(
+            ["python", "transcribe.py", text],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        # Check if the audio file was created
+        audio_path = os.path.join("data", "main.mp3")
+        if not os.path.exists(audio_path):
+            return jsonify({"error": "Audio file not created"}), 500
+        
+        # Return the audio file
+        return send_file(audio_path, mimetype='audio/mpeg')
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Failed to generate audio: {e.stderr}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/edit_scad", methods=["POST"])
 def edit_scad():
@@ -39,7 +94,7 @@ def edit_scad():
         code = gen_openscad2(updated_spec)"""
     #else:
     updated_spec = edit_existing_model(edit_request, historical_text, current_scad)
-    code = gen_openscad(updated_spec)
+    code, description = gen_openscad(updated_spec)  # Returns tuple
     code_blocks = [block.text for block in code if hasattr(block, "text")]
     joined_code = "\n".join(code_blocks)
     clean_code = re.sub(r"```[a-zA-Z]*\n?|```", "", joined_code).strip()

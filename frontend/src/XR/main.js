@@ -49,7 +49,51 @@ if (SpeechRecognition) {
     }
     
     if (finalTranscript) {
-      console.log('📝 Final transcript:', finalTranscript.trim());
+      const finalText = finalTranscript.trim();
+      console.log('📝 Final transcript:', finalText);
+      
+      // Call LLM and generate audio response
+      (async () => {
+        try {
+          // Call the LLM API with the transcribed text
+          const response = await fetch('http://localhost:5000/api/generate_scad', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: finalText })
+          });
+          
+          if (!response.ok) {
+            console.error('LLM API failed:', response.statusText);
+            return;
+          }
+          
+          const data = await response.json();
+          console.log('LLM response:', data);
+          
+          // If there's a description, generate audio
+          if (data.description && data.description.trim()) {
+            const audioResponse = await fetch('http://localhost:5000/api/text-to-speech', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: data.description })
+            });
+            
+            if (!audioResponse.ok) {
+              console.error('Audio generation failed:', audioResponse.statusText);
+              return;
+            }
+            
+            const audioBlob = await audioResponse.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            await audio.play();
+            
+            console.log('✅ Audio played successfully');
+          }
+        } catch (err) {
+          console.error('Error processing voice command:', err);
+        }
+      })();
     }
   };
 

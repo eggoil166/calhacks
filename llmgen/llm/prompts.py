@@ -47,6 +47,8 @@ Rules:
 8. For slightly more complex shapes, use appropriate OpenSCAD libraries or functions. Alternatively, use open-source modules if necessary. 
 9. Whenever possible, ensure the model looks realistic as possible. 
 
+IMPORTANT: Before the code, provide a brief 2-sentence natural language description of what this model creates, in a conversational tone suitable for voice output.
+
 Geometry JSON:
 {geometry_json}
 """
