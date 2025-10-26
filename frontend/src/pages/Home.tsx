@@ -195,8 +195,8 @@ export function Home() {
         </div>
       </div>
 
-      {showAR && stlUrl && (
-        <ARViewer stlUrl={stlUrl} onClose={() => setShowAR(false)} />
+      {showAR && (
+        <ARViewer stlUrl={stlUrl || ''} onClose={() => setShowAR(false)} />
       )}
     </div>
   );
